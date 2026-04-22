@@ -202,7 +202,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
   <div class="ld-box">
     <div class="ld-spin"></div>
     <div class="ld-txt" id="ldTxt">Đang kết nối API...</div>
-    <div class="ld-sub" id="ldSub">TCBS · Stooq · RSS</div>
+    <div class="ld-sub" id="ldSub">VNDirect · Yahoo Finance · RSS</div>
   </div>
 </div>
 
@@ -242,7 +242,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
   </div>
   <div class="sm">
     <div id="sbDate" style="margin-bottom:3px;font-weight:600;color:var(--text2)">--/--/----</div>
-    Data thật từ TCBS, Stooq, RSS.<br><br>
+    Data thật từ VNDirect, Yahoo Finance, RSS.<br><br>
     <strong>© Broker Intel</strong> — Chỉ mang tính tham khảo, <strong>không phải</strong> lời khuyên đầu tư.
   </div>
   <div class="ss">
@@ -270,7 +270,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 <main class="content" id="mainContent">
   <div class="ci" id="ci"></div>
   <footer class="ft">
-    <span>Dữ liệu từ TCBS · Stooq · RSS Feeds. Chỉ mang tính tham khảo.</span>
+    <span>Dữ liệu từ VNDirect · Yahoo Finance · RSS Feeds. Chỉ mang tính tham khảo.</span>
     <span id="ftTime"></span>
   </footer>
 </main>
@@ -281,18 +281,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 <script>
 /* ============================================================
    BROKER INTEL DASHBOARD
+   Proxy: https://broker-proxy.baog2766.workers.dev (Cloudflare Worker)
    API Sources:
-     - VN Indices : TCBS apipubaws (CORS public, no proxy)
-     - World/Comm : Stooq.com CSV (qua thingproxy để bypass CORS)
-     - USD/VND    : open.er-api.com (no proxy needed)
-     - News       : RSS feeds qua thingproxy + DOMParser
-   
-   Không dùng AbortController.
-   Timeout: Promise.race với setTimeout.
-   Tất cả URL đều HTTPS. Chạy được trên GitHub Pages.
+     - VN Indices : VNDirect finfo-api qua Cloudflare Worker
+     - World/Comm : Yahoo Finance v8 qua Cloudflare Worker
+     - USD/VND    : open.er-api.com (CORS public, gọi thẳng)
+     - News       : RSS feeds qua Cloudflare Worker + DOMParser
+   ES5 thuần — không async/await, không AbortController.
 ============================================================ */
 
 var DEBUG = true;
+
+/* Cloudflare Worker proxy — TẤT CẢ API đi qua đây (trừ USD/VND) */
+var PROXY = function(url) {
+  return 'https://broker-proxy.baog2766.workers.dev/?url=' + encodeURIComponent(url);
+};
 
 /* ─────────────────────────────────────────────────────────
    LIVE STATE — giữ nguyên cấu trúc
@@ -375,286 +378,156 @@ var timeAgo = function(s) {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   PHẦN 1: FETCH UTILITIES
-   - fetchTimeout: Promise.race với setTimeout (không AbortController)
-   - Tất cả URL đều HTTPS
+   FETCH UTILITIES
+   - Promise.race + setTimeout thay cho AbortController
+   - Tất cả request đi qua Cloudflare Worker PROXY
+   - Viết ES5 thuần (var, function, không arrow/template literal)
 ═══════════════════════════════════════════════════════════ */
 
-/* Timeout qua Promise.race — không cần AbortController */
+/* Timeout — Promise.race, KHÔNG dùng AbortController */
 function fetchTimeout(url, ms) {
   ms = ms || 10000;
-  var timer = new Promise(function(_, reject) {
-    setTimeout(function() { reject(new Error('Timeout ' + ms + 'ms: ' + url.slice(0,60))); }, ms);
-  });
-  return Promise.race([fetch(url), timer]);
+  return Promise.race([
+    fetch(url),
+    new Promise(function(_, reject) {
+      setTimeout(function() { reject(new Error('Timeout ' + ms + 'ms')); }, ms);
+    })
+  ]);
 }
 
-/* fetchText: lấy response dạng text (dùng cho CSV) */
-function fetchText(url, ms) {
-  return fetchTimeout(url, ms || 10000).then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + url.slice(0,60));
-    return r.text();
-  });
-}
-
-/* fetchJSON: lấy response dạng JSON */
+/* fetchJSON — trả về parsed JSON hoặc throw */
 function fetchJSON(url, ms) {
   return fetchTimeout(url, ms || 10000).then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + url.slice(0,60));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   });
 }
 
-/* Proxy prefix — thingproxy.freeboard.io (HTTPS) */
-function proxyTP(url) {
-  return 'https://thingproxy.freeboard.io/fetch/' + url;
-}
-
-/* allorigins backup */
-function proxyAO(url) {
-  return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-}
-
-/* ═══════════════════════════════════════════════════════════
-   PHẦN 2: VN INDICES — TCBS apipubaws
-   
-   Endpoint: https://apipubaws.tcbs.com.vn/stock-insight/v1/index/history
-   Params: ticker=VNINDEX|VN30|VNMIDCAP&type=index&count=2
-   
-   Response: { data: [ { t, o, h, l, c, v }, ... ] }
-     t = timestamp (giây), c = close, o = open, v = volume
-   
-   count=2 để tính change = c[mới] - c[cũ]
-   Không cần proxy vì API có CORS header public.
-═══════════════════════════════════════════════════════════ */
-
-function fetchTCBS(ticker) {
-  /* Lấy 2 phiên để tính change */
-  var url = 'https://apipubaws.tcbs.com.vn/stock-insight/v1/index/history'
-    + '?ticker=' + ticker + '&type=index&count=2';
-
-  return fetchJSON(url, 9000)
-    .then(function(d) {
-      var rows = (d && d.data) ? d.data : [];
-      if (rows.length === 0) throw new Error('TCBS empty: ' + ticker);
-
-      /* Sắp xếp: mới nhất trước (t giảm dần) */
-      rows.sort(function(a, b) { return b.t - a.t; });
-
-      var curr = rows[0];
-      var prev = rows[1] || rows[0];
-
-      var close    = parseFloat(curr.c || curr.close || 0);
-      var prevClose= parseFloat(prev.c || prev.close || close);
-      var change   = parseFloat((close - prevClose).toFixed(2));
-      var pct      = prevClose ? parseFloat((change / prevClose * 100).toFixed(2)) : 0;
-      /* volume từ TCBS đơn vị khớp lệnh (cổ phiếu), chia 1e6 → triệu */
-      var vol      = parseFloat((parseFloat(curr.v || 0) / 1e6).toFixed(2));
-
-      if (DEBUG) console.log('[TCBS/' + ticker + ']', {close: close, change: change, pct: pct});
-      return { value: close, change: change, pct: pct, vol: vol, val: null, up:0, nt:0, dn:0 };
-    })
-    .catch(function(e) {
-      if (DEBUG) console.warn('[TCBS/' + ticker + '] fail:', e.message);
-      return null;
-    });
-}
-
-/* Fetch cả 3 VN indices song song */
-function fetchAllVN() {
-  return Promise.all([
-    fetchTCBS('VNINDEX'),
-    fetchTCBS('VN30'),
-    fetchTCBS('VNMIDCAP'),
-  ]).then(function(results) {
-    return { VNINDEX: results[0], VN30: results[1], VNMIDCAP: results[2] };
+/* fetchText — trả về text hoặc throw */
+function fetchText(url, ms) {
+  return fetchTimeout(url, ms || 10000).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.text();
   });
 }
 
 /* ═══════════════════════════════════════════════════════════
-   PHẦN 3: WORLD INDICES & COMMODITIES — Stooq.com CSV
-   
-   URL: https://stooq.com/q/l/?s=SYMBOL&f=sd2t2ohlcv&h&e=csv
-   Response: CSV text
-     Header: Symbol,Date,Time,Open,High,Low,Close,Volume
-     Row 1 (index 1): data mới nhất
-   
-   size=2 để lấy 2 ngày → tính change/pct
-   URL pattern với size: https://stooq.com/q/d/l/?s=SYMBOL&i=d  (daily history)
-   
-   Dùng thingproxy để bypass CORS.
-   Fallback sang allorigins nếu thingproxy lỗi.
+   VN INDICES — VNDirect finfo-api qua Cloudflare Worker
+   Endpoint: finfo-api.vndirect.com.vn/v4/stock-prices
+   Fields: code, close, change, pctChange, nmVolume, nmValue
 ═══════════════════════════════════════════════════════════ */
-
-/*
-  Symbol mapping (Stooq):
-  - S&P 500    → ^spx
-  - Nasdaq     → ^ndx
-  - Dow Jones  → ^dji
-  - Nikkei     → ^nkx
-  - Hang Seng  → ^hsi
-  - FTSE 100   → ^ftx
-  - Vàng       → xauusd  (spot gold vs USD)
-  - Bạc        → xagusd
-  - Dầu WTI    → cl.f
-*/
-
-/* Parse CSV từ Stooq — lấy 1 hoặc 2 dòng data */
-function parseStooqCSV(csvText, symbol) {
-  var lines = csvText.trim().split('\n');
-  /* Dòng 0: header, dòng 1+: data (mới nhất trước) */
-  if (lines.length < 2) throw new Error('Stooq: no data rows for ' + symbol);
-
-  function parseLine(line) {
-    /* Tách bằng dấu phẩy, trim khoảng trắng */
-    return line.split(',').map(function(s) { return s.trim(); });
-  }
-
-  var row1 = parseLine(lines[1]);
-  /* CSV columns: Symbol, Date, Time, Open, High, Low, Close, Volume */
-  /* Index:         0       1     2     3     4     5    6      7     */
-  var close1 = parseFloat(row1[6]);
-  if (!close1 || isNaN(close1)) throw new Error('Stooq: zero/NaN close for ' + symbol);
-
-  var change = 0;
-  var pct    = 0;
-
-  /* Nếu có dòng thứ 2 (ngày trước) → tính change */
-  if (lines.length >= 3) {
-    var row2   = parseLine(lines[2]);
-    var close2 = parseFloat(row2[6]);
-    if (close2 && !isNaN(close2)) {
-      change = parseFloat((close1 - close2).toFixed(4));
-      pct    = parseFloat((change / close2 * 100).toFixed(2));
-    }
-  }
-
-  return { value: close1, change: change, pct: pct, symbol: symbol };
-}
-
-function fetchStooq(symbol) {
-  /*
-    Lấy 2 ngày gần nhất:
-    https://stooq.com/q/d/l/?s=SYMBOL&i=d
-    trả về CSV lịch sử ngày, mới nhất ở trên.
-    Chỉ cần dòng 1-2 nhưng Stooq không hỗ trợ limit→ lấy hết, chỉ parse 2 dòng đầu.
-  */
-  var stooqUrl = 'https://stooq.com/q/d/l/?s=' + encodeURIComponent(symbol) + '&i=d';
-
-  function doFetch(proxyFn) {
-    return fetchText(proxyFn(stooqUrl), 10000)
-      .then(function(csv) { return parseStooqCSV(csv, symbol); });
-  }
-
-  /* Thử thingproxy trước */
-  return doFetch(proxyTP)
-    .catch(function(e1) {
-      if (DEBUG) console.warn('[Stooq/' + symbol + '] thingproxy fail:', e1.message, '→ allorigins');
-      return doFetch(proxyAO);
+function fetchVNIndices() {
+  var endpoint = 'https://finfo-api.vndirect.com.vn/v4/stock-prices?code=VNINDEX,VN30,VNMIDCAP&sort=date:desc&size=3';
+  return fetchJSON(PROXY(endpoint), 10000)
+    .then(function(d) {
+      var rows = (d && d.data) ? d.data : [];
+      if (!rows.length) throw new Error('empty');
+      var result = {};
+      rows.forEach(function(row) {
+        var code = (row.code || '').trim().toUpperCase();
+        if (['VNINDEX','VN30','VNMIDCAP'].indexOf(code) !== -1) {
+          var rawPct = parseFloat(row.pctChange || 0);
+          var pct = (Math.abs(rawPct) < 1 && rawPct !== 0) ? rawPct * 100 : rawPct;
+          result[code] = {
+            value:  parseFloat(row.close || 0),
+            change: parseFloat(row.change || 0),
+            pct:    parseFloat(pct.toFixed(2)),
+            vol:    parseFloat((parseFloat(row.nmVolume || 0) / 1e6).toFixed(2)),
+            val:    parseFloat((parseFloat(row.nmValue  || 0) / 1e9).toFixed(0)),
+            up: 0, nt: 0, dn: 0,
+          };
+        }
+      });
+      if (DEBUG) console.log('[VNDirect] OK:', result);
+      return result;
     })
-    .catch(function(e2) {
-      if (DEBUG) console.warn('[Stooq/' + symbol + '] all fail:', e2.message);
+    .catch(function(e) {
+      console.warn('[VNDirect] lỗi:', e.message);
       return null;
     });
 }
 
 /* ═══════════════════════════════════════════════════════════
-   PHẦN 4: USD/VND — open.er-api.com
-   Không cần proxy (API có CORS header).
+   WORLD INDICES + HÀNG HÓA — Yahoo Finance qua Cloudflare Worker
+   Symbols: ^GSPC ^IXIC ^DJI ^N225 ^HSI 000001.SS ^FTSE GC=F SI=F CL=F
+═══════════════════════════════════════════════════════════ */
+function fetchYahoo(symbol) {
+  var path = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(symbol) + '?range=1d&interval=1d';
+  return fetchJSON(PROXY(path), 10000)
+    .then(function(d) {
+      var res = d && d.chart && d.chart.result && d.chart.result[0];
+      if (!res) throw new Error('no result');
+      var meta  = res.meta;
+      var price = parseFloat(meta.regularMarketPrice || meta.chartPreviousClose || 0);
+      var prev  = parseFloat(meta.chartPreviousClose || meta.previousClose || price);
+      if (!price) throw new Error('zero price');
+      var chg = price - prev;
+      var pct = prev ? parseFloat((chg / prev * 100).toFixed(2)) : 0;
+      return { value: price, change: parseFloat(chg.toFixed(4)), pct: pct, symbol: symbol };
+    })
+    .catch(function(e) {
+      console.warn('[Yahoo/' + symbol + '] lỗi:', e.message);
+      return null;
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   USD/VND — open.er-api.com, gọi thẳng (có CORS public)
 ═══════════════════════════════════════════════════════════ */
 function fetchUSDVND() {
   return fetchJSON('https://open.er-api.com/v6/latest/USD', 8000)
     .then(function(d) {
       if (d && d.rates && d.rates.VND) {
-        if (DEBUG) console.log('[USD/VND]', d.rates.VND);
+        if (DEBUG) console.log('[USD/VND] OK:', d.rates.VND);
         return d.rates.VND;
       }
-      throw new Error('VND field missing');
+      throw new Error('VND missing');
     })
     .catch(function(e) {
-      if (DEBUG) console.warn('[USD/VND] fail:', e.message);
+      console.warn('[USD/VND] lỗi:', e.message);
       return null;
     });
 }
 
 /* ═══════════════════════════════════════════════════════════
-   PHẦN 5: RSS NEWS — fetch trực tiếp qua thingproxy + DOMParser
-   
-   Không dùng rss2json nữa.
-   Dùng thingproxy.freeboard.io làm proxy prefix:
-     https://thingproxy.freeboard.io/fetch/RSS_URL
-   
-   Parse XML bằng DOMParser (built-in, không cần thư viện).
-   Fallback sang allorigins nếu thingproxy lỗi.
+   RSS NEWS — fetch XML qua Cloudflare Worker + DOMParser
+   Không dùng rss2json.com.
 ═══════════════════════════════════════════════════════════ */
+function fetchRSS(url) {
+  /* Lấy source label từ hostname */
+  var srcLabel = url
+    .replace('https://','').replace('http://','')
+    .split('/')[0]
+    .replace('www.','').replace('feeds.','')
+    .split('.')[0].toUpperCase().slice(0, 8);
 
-/* Lấy text từ XML element */
-function xmlText(el, tag) {
-  var node = el.querySelector(tag);
-  return node ? (node.textContent || node.innerHTML || '').trim() : '';
-}
-
-/* Parse XML RSS string → array of {title, link, pubDate, source} */
-function parseRSSXML(xmlStr, sourceLabel) {
-  var parser = new DOMParser();
-  var doc;
-  try {
-    doc = parser.parseFromString(xmlStr, 'text/xml');
-  } catch(e) {
-    throw new Error('DOMParser fail: ' + e.message);
-  }
-
-  /* Kiểm tra lỗi parse */
-  var parseErr = doc.querySelector('parsererror');
-  if (parseErr) throw new Error('XML parse error');
-
-  var items = doc.querySelectorAll('item');
-  if (!items || !items.length) throw new Error('No <item> found');
-
-  var result = [];
-  items.forEach(function(item) {
-    var title   = xmlText(item, 'title');
-    /* link có thể là tag <link> hoặc <guid> */
-    var link    = xmlText(item, 'link') || xmlText(item, 'guid') || '#';
-    var pubDate = xmlText(item, 'pubDate');
-    if (title) {
-      result.push({ title: title, link: link, pubDate: pubDate, source: sourceLabel });
-    }
-  });
-  return result;
-}
-
-/* Lấy source label từ URL (8 ký tự) */
-function rssLabel(url) {
-  try {
-    return new URL(url).hostname
-      .replace('www.','').replace('feeds.','')
-      .split('.')[0].toUpperCase().slice(0, 8);
-  } catch(e) { return 'NEWS'; }
-}
-
-/* Fetch 1 RSS feed qua proxy */
-function fetchRSS(rssUrl) {
-  var label = rssLabel(rssUrl);
-
-  function doFetch(proxyFn) {
-    return fetchText(proxyFn(rssUrl), 12000)
-      .then(function(xml) { return parseRSSXML(xml, label); });
-  }
-
-  /* Thử thingproxy trước */
-  return doFetch(proxyTP)
-    .catch(function(e1) {
-      if (DEBUG) console.warn('[RSS/' + label + '] thingproxy fail:', e1.message, '→ allorigins');
-      return doFetch(proxyAO);
+  return fetchText(PROXY(url), 12000)
+    .then(function(text) {
+      var xml = new DOMParser().parseFromString(text, 'text/xml');
+      /* Kiểm tra parse error */
+      if (xml.querySelector('parsererror')) throw new Error('XML parse error');
+      var items = Array.from(xml.querySelectorAll('item'));
+      if (!items.length) throw new Error('no items');
+      return items.slice(0, 20).map(function(item) {
+        var titleEl  = item.querySelector('title');
+        var linkEl   = item.querySelector('link');
+        var guidEl   = item.querySelector('guid');
+        var pubEl    = item.querySelector('pubDate');
+        return {
+          title:   titleEl  ? titleEl.textContent.trim()  : '',
+          link:    linkEl   ? linkEl.textContent.trim()   : (guidEl ? guidEl.textContent.trim() : '#'),
+          pubDate: pubEl    ? pubEl.textContent           : '',
+          source:  srcLabel,
+        };
+      }).filter(function(n) { return n.title; });
     })
-    .catch(function(e2) {
-      if (DEBUG) console.warn('[RSS/' + label + '] all fail:', e2.message);
-      return []; /* Trả về mảng rỗng, không crash */
+    .catch(function(e) {
+      console.warn('[RSS] lỗi ' + url.slice(0,50) + ':', e.message);
+      return [];
     });
 }
 
-/* ─── Keyword filter ─── */
+/* ── Keyword filter ── */
 var VN_KW = [
   'ngân hàng nhà nước','lãi suất','tín dụng','chính phủ','nghị quyết',
   'chính sách','gdp','lạm phát','tỷ giá','ngoại hối','đầu tư công',
@@ -667,20 +540,16 @@ var INT_KW = [
 ];
 
 function processNews(items, keywords) {
-  /* Dedup theo title */
   var seen = {};
   var unique = [];
   items.forEach(function(n) {
     if (n && n.title && !seen[n.title]) { seen[n.title] = 1; unique.push(n); }
   });
-  /* Sort mới nhất trước */
   unique.sort(function(a, b) { return new Date(b.pubDate) - new Date(a.pubDate); });
-  /* Filter keyword */
   var filtered = unique.filter(function(n) {
     var t = (n.title || '').toLowerCase();
     return keywords.some(function(k) { return t.indexOf(k) !== -1; });
   });
-  /* Nếu < 4 tin → bổ sung tin mới nhất */
   if (filtered.length < 4) {
     var extras = unique.filter(function(n) { return filtered.indexOf(n) === -1; });
     filtered = filtered.concat(extras);
@@ -689,75 +558,76 @@ function processNews(items, keywords) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   PHẦN 6: SYMBOL DEFINITIONS
+   SYMBOL DEFINITIONS
 ═══════════════════════════════════════════════════════════ */
 
+/* Yahoo Finance symbols — thế giới */
 var WORLD_SYMS = [
-  { sym:'^spx', label:'S&P 500'   },
-  { sym:'^ndx', label:'Nasdaq'    },
-  { sym:'^dji', label:'Dow Jones' },
-  { sym:'^nkx', label:'Nikkei'    },
-  { sym:'^hsi', label:'Hang Seng' },
-  { sym:'^ftx', label:'FTSE 100'  },
+  {sym:'^GSPC',    label:'S&P 500'   },
+  {sym:'^IXIC',    label:'Nasdaq'    },
+  {sym:'^DJI',     label:'Dow Jones' },
+  {sym:'^N225',    label:'Nikkei'    },
+  {sym:'^HSI',     label:'Hang Seng' },
+  {sym:'000001.SS',label:'Shanghai'  },
+  {sym:'^FTSE',    label:'FTSE 100'  },
 ];
 
+/* Yahoo Finance symbols — hàng hóa */
 var COMM_SYMS = [
-  { sym:'xauusd', label:'Vàng',    unit:'USD/oz'  },
-  { sym:'xagusd', label:'Bạc',     unit:'USD/oz'  },
-  { sym:'cl.f',   label:'Dầu WTI', unit:'USD/bbl' },
+  {sym:'GC=F', label:'Vàng',    unit:'USD/oz' },
+  {sym:'SI=F', label:'Bạc',     unit:'USD/oz' },
+  {sym:'CL=F', label:'Dầu WTI', unit:'USD/bbl'},
 ];
 
+/* RSS feeds — tin trong nước */
 var VN_RSS = [
   'https://cafef.vn/tai-chinh-ngan-hang.rss',
-  'https://vneconomy.vn/rss/home.rss',
-  'https://tuoitre.vn/rss/kinh-doanh.rss',
+  'https://cafef.vn/thi-truong-chung-khoan.rss',
+  'https://vneconomy.vn/chung-khoan.rss',
   'https://nhipcaudautu.vn/feed/',
 ];
+
+/* RSS feeds — tin quốc tế */
 var INT_RSS = [
   'https://feeds.reuters.com/reuters/businessNews',
   'https://feeds.apnews.com/apnews/economy',
   'https://cafef.vn/the-gioi.rss',
-  'https://vneconomy.vn/the-gioi.rss',
 ];
 
 /* ═══════════════════════════════════════════════════════════
-   PHẦN 7: MAIN FETCH ORCHESTRATOR
+   MAIN FETCH ORCHESTRATOR
+   - Tất cả fetch song song qua Promise.allSettled
+   - Mỗi hàm tự bắt lỗi → app không crash
 ═══════════════════════════════════════════════════════════ */
-
-async function fetchAll() {
+function fetchAll() {
   var now = Date.now();
   var tasks = [];
 
-  /* ── [1] VN Indices — TCBS, refresh 5 phút ── */
+  /* ── [1] VN Indices — VNDirect qua proxy, refresh 5 phút ── */
   if (now - LIVE.ts.vn > 5 * 60 * 1000) {
     tasks.push(
-      fetchAllVN().then(function(data) {
+      fetchVNIndices().then(function(data) {
         if (!data) return;
-        /* Merge từng index — giữ cũ nếu API trả null */
-        if (data.VNINDEX) Object.assign(LIVE.vni,  data.VNINDEX);
-        if (data.VN30)    Object.assign(LIVE.vn30, data.VN30);
-        if (data.VNMIDCAP)Object.assign(LIVE.vnmid,data.VNMIDCAP);
+        if (data.VNINDEX) Object.assign(LIVE.vni,   data.VNINDEX);
+        if (data.VN30)    Object.assign(LIVE.vn30,  data.VN30);
+        if (data.VNMIDCAP)Object.assign(LIVE.vnmid, data.VNMIDCAP);
         LIVE.ts.vn = Date.now();
-        if (DEBUG) console.log('[VN] VNINDEX:', LIVE.vni.value, 'VN30:', LIVE.vn30.value);
       })
     );
   }
 
-  /* ── [2] World + Commodities + USD/VND — Stooq + erapi, refresh 15 phút ── */
+  /* ── [2] World + Hàng hóa + USD/VND — Yahoo + erapi, refresh 15 phút ── */
   if (now - LIVE.ts.world > 15 * 60 * 1000) {
-    /* World indices */
     var worldTasks = WORLD_SYMS.map(function(w) {
-      return fetchStooq(w.sym).then(function(r) {
-        if (r) LIVE.world[w.sym] = Object.assign({}, r, { label: w.label });
+      return fetchYahoo(w.sym).then(function(r) {
+        if (r) LIVE.world[w.sym] = Object.assign({}, r, {label: w.label});
       });
     });
-    /* Commodities */
     var commTasks = COMM_SYMS.map(function(c) {
-      return fetchStooq(c.sym).then(function(r) {
-        if (r) LIVE.comm[c.sym] = Object.assign({}, r, { label: c.label, unit: c.unit });
+      return fetchYahoo(c.sym).then(function(r) {
+        if (r) LIVE.comm[c.sym] = Object.assign({}, r, {label: c.label, unit: c.unit});
       });
     });
-    /* USD/VND */
     var exTask = fetchUSDVND().then(function(rate) {
       if (rate) LIVE.usdvnd = rate;
     });
@@ -774,7 +644,7 @@ async function fetchAll() {
     );
   }
 
-  /* ── [3] News RSS — thingproxy + DOMParser, refresh 30 phút ── */
+  /* ── [3] News RSS — proxy + DOMParser, refresh 30 phút ── */
   if (now - LIVE.ts.news > 30 * 60 * 1000) {
     tasks.push(
       Promise.all(VN_RSS.map(fetchRSS)).then(function(results) {
@@ -793,17 +663,20 @@ async function fetchAll() {
     );
   }
 
-  /* Chờ tất cả tasks, không crash dù 1 task lỗi */
-  await Promise.allSettled(tasks);
-
-  if (DEBUG) console.log('[LIVE SNAPSHOT]', {
-    vni: LIVE.vni.value, vn30: LIVE.vn30.value, vnmid: LIVE.vnmid.value,
-    worldKeys: Object.keys(LIVE.world), commKeys: Object.keys(LIVE.comm),
-    usdvnd: LIVE.usdvnd, newsVN: LIVE.news.vn.length, newsWorld: LIVE.news.world.length,
+  return Promise.allSettled(tasks).then(function() {
+    if (DEBUG) console.log('[LIVE SNAPSHOT]', {
+      vni:       LIVE.vni.value,
+      vn30:      LIVE.vn30.value,
+      vnmid:     LIVE.vnmid.value,
+      world:     Object.keys(LIVE.world),
+      comm:      Object.keys(LIVE.comm),
+      usdvnd:    LIVE.usdvnd,
+      newsVN:    LIVE.news.vn.length,
+      newsWorld: LIVE.news.world.length,
+    });
+    updatePulseBar();
+    if (currentSection === 'tonghop') render();
   });
-
-  updatePulseBar();
-  if (currentSection === 'tonghop') render();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1214,34 +1087,34 @@ function tick() {
 setInterval(tick, 1000);
 tick();
 
-/* ── INIT ── */
-async function init() {
-  render(); // placeholder ngay lập tức
+/* ── INIT — ES5 Promise chain, không dùng async/await ── */
+function init() {
+  render(); /* render placeholder ngay lập tức */
 
   document.getElementById('ldTxt').textContent = 'Đang kết nối API...';
-  document.getElementById('ldSub').textContent = 'TCBS · Stooq · RSS';
+  document.getElementById('ldSub').textContent = 'VNDirect · Yahoo Finance · RSS';
 
-  try {
-    await fetchAll();
-  } catch(e) {
-    if (DEBUG) console.warn('[init] fetchAll error:', e);
-  }
+  fetchAll()
+    .catch(function(e) {
+      if (DEBUG) console.warn('[init] fetchAll error:', e);
+    })
+    .then(function() {
+      document.getElementById('ldOverlay').style.display = 'none';
+      render();
 
-  document.getElementById('ldOverlay').style.display = 'none';
-  render();
+      /* Auto-refresh VN mỗi 5 phút */
+      setInterval(function() {
+        LIVE.ts.vn = 0;
+        fetchAll();
+      }, 5 * 60 * 1000);
 
-  /* Auto-refresh: VN mỗi 5 phút */
-  setInterval(function() {
-    LIVE.ts.vn = 0;
-    fetchAll();
-  }, 5 * 60 * 1000);
-
-  /* Auto-refresh: World + News mỗi 15 phút */
-  setInterval(function() {
-    LIVE.ts.world = 0;
-    LIVE.ts.news  = 0;
-    fetchAll();
-  }, 15 * 60 * 1000);
+      /* Auto-refresh World + News mỗi 15 phút */
+      setInterval(function() {
+        LIVE.ts.world = 0;
+        LIVE.ts.news  = 0;
+        fetchAll();
+      }, 15 * 60 * 1000);
+    });
 }
 
 init();
