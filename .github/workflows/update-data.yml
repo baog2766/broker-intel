@@ -1,0 +1,101 @@
+name: Update VN Market Data
+
+on:
+  schedule:
+    # Chạy mỗi 5 phút, thứ 2-6, từ 9:00-15:05 giờ VN (UTC+7 = UTC 2:00-8:05)
+    - cron: '*/5 2-8 * * 1-5'
+  workflow_dispatch: # Cho phép chạy thủ công
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install vnstock
+        run: pip install vnstock
+
+      - name: Fetch VN market data
+        run: |
+          python3 << 'EOF'
+          import json
+          import datetime
+
+          try:
+              from vnstock import Vnstock
+
+              stock = Vnstock()
+
+              # Lấy VNINDEX
+              def get_index(ticker):
+                  try:
+                      df = stock.stock(symbol=ticker, source='VCI').quote.history(
+                          start=datetime.date.today().strftime('%Y-%m-%d'),
+                          end=datetime.date.today().strftime('%Y-%m-%d'),
+                          interval='1D'
+                      )
+                      if df is not None and len(df) > 0:
+                          row = df.iloc[-1]
+                          close = float(row.get('close', 0))
+                          open_p = float(row.get('open', close))
+                          change = round(close - open_p, 2)
+                          pct = round(change / open_p * 100, 2) if open_p else 0
+                          vol = round(float(row.get('volume', 0)) / 1e6, 2)
+                          val = round(float(row.get('value', 0)) / 1e9, 0)
+                          return {"value": close, "change": change, "pct": pct, "vol": vol, "val": int(val)}
+                  except Exception as e:
+                      print(f"Error fetching {ticker}: {e}")
+                  return None
+
+              vni  = get_index('VNINDEX')
+              vn30 = get_index('VN30')
+              vnm  = get_index('VNMIDCAP')
+
+              now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7)))
+              updated = now.strftime('%d/%m/%Y %H:%M')
+
+              # Đọc data cũ để giữ lại nếu fetch lỗi
+              try:
+                  with open('data.json', 'r') as f:
+                      old = json.load(f)
+              except:
+                  old = {}
+
+              data = {
+                  "updated": updated,
+                  "vni":    vni   or old.get('vni',   {}),
+                  "vn30":   vn30  or old.get('vn30',  {}),
+                  "vnmid":  vnm   or old.get('vnmid', {}),
+                  "foreign": old.get('foreign', {"net": 0, "buy": 0, "sell": 0})
+              }
+
+              with open('data.json', 'w') as f:
+                  json.dump(data, f, ensure_ascii=False, indent=2)
+
+              print(f"Updated: {updated}")
+              print(f"VNINDEX: {vni}")
+              print(f"VN30: {vn30}")
+              print(f"VNMIDCAP: {vnm}")
+
+          except Exception as e:
+              print(f"Fatal error: {e}")
+              import traceback
+              traceback.print_exc()
+          EOF
+
+      - name: Commit data.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git diff --staged --quiet || git commit -m "auto: update market data $(date +'%H:%M %d/%m/%Y')"
+          git push
