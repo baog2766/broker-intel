@@ -104,7 +104,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .btitle::before{content:'';width:3px;height:13px;background:var(--accent);border-radius:2px}
 .bbody{font-size:13px;color:var(--text2);line-height:1.7}
 .bbody strong{color:var(--text);font-weight:600}
-.bbody .pos{color:var(--green);font-weight:600}.bbody .neg{color:var(--red);font-weight:600}
 .abox{background:rgba(37,99,235,.06);border:1px solid rgba(37,99,235,.18);border-radius:8px;padding:10px 13px;margin-top:11px;display:flex;gap:9px;align-items:flex-start}
 .abox p{font-size:12.5px;color:var(--text2);line-height:1.6}
 .abox p strong{color:var(--text)}
@@ -188,6 +187,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .ld-txt{font-size:13px;color:var(--text2);margin-bottom:6px}
 .ld-sub{font-size:11px;color:var(--text3)}
 .ft{padding:7px 26px;border-top:1px solid var(--border);font-size:10.5px;color:var(--text3);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+/* Badge cập nhật VN */
+.vn-update-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.2);border-radius:6px;padding:2px 8px;font-size:10px;color:var(--green);font-family:var(--mono)}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
@@ -201,12 +202,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 <div class="ld-overlay" id="ldOverlay">
   <div class="ld-box">
     <div class="ld-spin"></div>
-    <div class="ld-txt" id="ldTxt">Đang kết nối API...</div>
-    <div class="ld-sub" id="ldSub">VNDirect · Yahoo Finance · RSS</div>
+    <div class="ld-txt" id="ldTxt">Đang tải dữ liệu...</div>
+    <div class="ld-sub" id="ldSub">VN Index · Yahoo Finance · RSS</div>
   </div>
 </div>
 
-<div class="pulse-bar" id="pulseBar">
+<div class="pulse-bar">
   <div class="pi" id="pi-vni">
     <div><div class="pi-label">VNINDEX</div></div>
     <div class="pi-val" id="pv-vni">--</div>
@@ -242,7 +243,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
   </div>
   <div class="sm">
     <div id="sbDate" style="margin-bottom:3px;font-weight:600;color:var(--text2)">--/--/----</div>
-    Data thật từ VNDirect, Yahoo Finance, RSS.<br><br>
+    VN Index tự động cập nhật mỗi 5 phút qua GitHub Actions.<br><br>
     <strong>© Broker Intel</strong> — Chỉ mang tính tham khảo, <strong>không phải</strong> lời khuyên đầu tư.
   </div>
   <div class="ss">
@@ -267,10 +268,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
   </div>
 </aside>
 
-<main class="content" id="mainContent">
+<main class="content">
   <div class="ci" id="ci"></div>
   <footer class="ft">
-    <span>Dữ liệu từ VNDirect · Yahoo Finance · RSS Feeds. Chỉ mang tính tham khảo.</span>
+    <span>VN Index: GitHub Actions + vnstock · Thế giới: Yahoo Finance · Chỉ mang tính tham khảo.</span>
     <span id="ftTime"></span>
   </footer>
 </main>
@@ -279,27 +280,26 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 </div>
 
 <script>
-/* ============================================================
+/* ================================================================
    BROKER INTEL DASHBOARD
-   Proxy: https://broker-proxy.baog2766.workers.dev (Cloudflare Worker)
-   API Sources:
-     - VN Indices : VNDirect finfo-api qua Cloudflare Worker
-     - World/Comm : Yahoo Finance v8 qua Cloudflare Worker
-     - USD/VND    : open.er-api.com (CORS public, gọi thẳng)
-     - News       : RSS feeds qua Cloudflare Worker + DOMParser
-   ES5 thuần — không async/await, không AbortController.
-============================================================ */
+   VN Index  : data.json (GitHub Actions + vnstock, tự động mỗi 5p)
+   World/Comm: Yahoo Finance qua Cloudflare Worker
+   USD/VND   : open.er-api.com (gọi thẳng)
+   News      : RSS qua Cloudflare Worker + DOMParser
+   ES5 thuần — không async/await, không AbortController
+================================================================ */
 
 var DEBUG = true;
 
-/* Cloudflare Worker proxy — TẤT CẢ API đi qua đây (trừ USD/VND) */
+/* Cloudflare Worker proxy */
 var PROXY = function(url) {
   return 'https://broker-proxy.baog2766.workers.dev/?url=' + encodeURIComponent(url);
 };
 
-/* ─────────────────────────────────────────────────────────
-   LIVE STATE — giữ nguyên cấu trúc
-───────────────────────────────────────────────────────── */
+/* URL file data VN — GitHub Pages */
+var DATA_JSON_URL = 'https://baog2766.github.io/broker-intel/data.json';
+
+/* ── LIVE STATE ── */
 var LIVE = {
   vni:    { value:null, change:null, pct:null, vol:null, val:null, up:null, nt:null, dn:null },
   vn30:   { value:null, change:null, pct:null },
@@ -310,11 +310,10 @@ var LIVE = {
   usdvnd: null,
   news:   { vn:[], world:[] },
   ts:     { vn:0, world:0, news:0 },
+  vnUpdated: '', /* Thời gian cập nhật VN index từ data.json */
 };
 
-/* ─────────────────────────────────────────────────────────
-   PLACEHOLDER — giữ nguyên
-───────────────────────────────────────────────────────── */
+/* ── PLACEHOLDER ── */
 var PH = {
   vni:    { value:1289.47, change:11.23, pct:0.88, vol:724, val:17840, up:285, nt:94, dn:177 },
   vn30:   { value:1318.72, change:7.84,  pct:0.60 },
@@ -352,13 +351,11 @@ var PH = {
   ],
 };
 
-/* ─────────────────────────────────────────────────────────
-   HELPERS — giữ nguyên
-───────────────────────────────────────────────────────── */
+/* ── HELPERS ── */
 var cls  = function(v) { return v > 0 ? 'up' : v < 0 ? 'down' : 'flat'; };
 var sign = function(v) { return v > 0 ? '+' : ''; };
 var fmt  = function(v, d) {
-  d = d == null ? 2 : d;
+  d = (d == null) ? 2 : d;
   if (v == null || isNaN(v)) return '--';
   return Number(v).toLocaleString('vi-VN', {minimumFractionDigits:d, maximumFractionDigits:d});
 };
@@ -377,14 +374,10 @@ var timeAgo = function(s) {
   } catch(e) { return ''; }
 };
 
-/* ═══════════════════════════════════════════════════════════
+/* ================================================================
    FETCH UTILITIES
-   - Promise.race + setTimeout thay cho AbortController
-   - Tất cả request đi qua Cloudflare Worker PROXY
-   - Viết ES5 thuần (var, function, không arrow/template literal)
-═══════════════════════════════════════════════════════════ */
-
-/* Timeout — Promise.race, KHÔNG dùng AbortController */
+   Promise.race + setTimeout — KHÔNG dùng AbortController
+================================================================ */
 function fetchTimeout(url, ms) {
   ms = ms || 10000;
   return Promise.race([
@@ -394,65 +387,61 @@ function fetchTimeout(url, ms) {
     })
   ]);
 }
-
-/* fetchJSON — trả về parsed JSON hoặc throw */
 function fetchJSON(url, ms) {
   return fetchTimeout(url, ms || 10000).then(function(r) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   });
 }
-
-/* fetchText — trả về text hoặc throw */
 function fetchText(url, ms) {
-  return fetchTimeout(url, ms || 10000).then(function(r) {
+  return fetchTimeout(url, ms || 12000).then(function(r) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.text();
   });
 }
 
-/* ═══════════════════════════════════════════════════════════
-   VN INDICES — VNDirect finfo-api qua Cloudflare Worker
-   Endpoint: finfo-api.vndirect.com.vn/v4/stock-prices
-   Fields: code, close, change, pctChange, nmVolume, nmValue
-═══════════════════════════════════════════════════════════ */
-function fetchVNIndices() {
-  var endpoint = 'https://finfo-api.vndirect.com.vn/v4/stock-prices?code=VNINDEX,VN30,VNMIDCAP&sort=date:desc&size=3';
-  return fetchJSON(PROXY(endpoint), 10000)
+/* ================================================================
+   [1] VN INDEX — đọc từ data.json (GitHub Actions + vnstock)
+   File này được tự động cập nhật mỗi 5 phút bởi GitHub Actions
+================================================================ */
+function fetchLocalData() {
+  /* Thêm timestamp để tránh cache */
+  var url = DATA_JSON_URL + '?t=' + Date.now();
+  return fetchJSON(url, 8000)
     .then(function(d) {
-      var rows = (d && d.data) ? d.data : [];
-      if (!rows.length) throw new Error('empty');
-      var result = {};
-      rows.forEach(function(row) {
-        var code = (row.code || '').trim().toUpperCase();
-        if (['VNINDEX','VN30','VNMIDCAP'].indexOf(code) !== -1) {
-          var rawPct = parseFloat(row.pctChange || 0);
-          var pct = (Math.abs(rawPct) < 1 && rawPct !== 0) ? rawPct * 100 : rawPct;
-          result[code] = {
-            value:  parseFloat(row.close || 0),
-            change: parseFloat(row.change || 0),
-            pct:    parseFloat(pct.toFixed(2)),
-            vol:    parseFloat((parseFloat(row.nmVolume || 0) / 1e6).toFixed(2)),
-            val:    parseFloat((parseFloat(row.nmValue  || 0) / 1e9).toFixed(0)),
-            up: 0, nt: 0, dn: 0,
-          };
-        }
-      });
-      if (DEBUG) console.log('[VNDirect] OK:', result);
-      return result;
+      if (d.vni   && d.vni.value)   Object.assign(LIVE.vni,    d.vni);
+      if (d.vn30  && d.vn30.value)  Object.assign(LIVE.vn30,   d.vn30);
+      if (d.vnmid && d.vnmid.value) Object.assign(LIVE.vnmid,  d.vnmid);
+      if (d.foreign && d.foreign.net != null) Object.assign(LIVE.foreign, d.foreign);
+      LIVE.vnUpdated = d.updated || '';
+      if (DEBUG) console.log('[data.json] OK — cập nhật lúc:', d.updated, '| VNINDEX:', d.vni && d.vni.value);
     })
     .catch(function(e) {
-      console.warn('[VNDirect] lỗi:', e.message);
-      return null;
+      console.warn('[data.json] lỗi:', e.message, '— giữ data cũ hoặc placeholder');
     });
 }
 
-/* ═══════════════════════════════════════════════════════════
-   WORLD INDICES + HÀNG HÓA — Yahoo Finance qua Cloudflare Worker
-   Symbols: ^GSPC ^IXIC ^DJI ^N225 ^HSI 000001.SS ^FTSE GC=F SI=F CL=F
-═══════════════════════════════════════════════════════════ */
+/* ================================================================
+   [2] THỊ TRƯỜNG THẾ GIỚI + HÀNG HÓA — Yahoo Finance qua Worker
+================================================================ */
+var WORLD_SYMS = [
+  {sym:'^GSPC',    label:'S&P 500'   },
+  {sym:'^IXIC',    label:'Nasdaq'    },
+  {sym:'^DJI',     label:'Dow Jones' },
+  {sym:'^N225',    label:'Nikkei'    },
+  {sym:'^HSI',     label:'Hang Seng' },
+  {sym:'000001.SS',label:'Shanghai'  },
+  {sym:'^FTSE',    label:'FTSE 100'  },
+];
+var COMM_SYMS = [
+  {sym:'GC=F', label:'Vàng',    unit:'USD/oz' },
+  {sym:'SI=F', label:'Bạc',     unit:'USD/oz' },
+  {sym:'CL=F', label:'Dầu WTI', unit:'USD/bbl'},
+];
+
 function fetchYahoo(symbol) {
-  var path = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(symbol) + '?range=1d&interval=1d';
+  var path = 'https://query1.finance.yahoo.com/v8/finance/chart/'
+    + encodeURIComponent(symbol) + '?range=1d&interval=1d';
   return fetchJSON(PROXY(path), 10000)
     .then(function(d) {
       var res = d && d.chart && d.chart.result && d.chart.result[0];
@@ -466,14 +455,14 @@ function fetchYahoo(symbol) {
       return { value: price, change: parseFloat(chg.toFixed(4)), pct: pct, symbol: symbol };
     })
     .catch(function(e) {
-      console.warn('[Yahoo/' + symbol + '] lỗi:', e.message);
+      if (DEBUG) console.warn('[Yahoo/' + symbol + ']', e.message);
       return null;
     });
 }
 
-/* ═══════════════════════════════════════════════════════════
-   USD/VND — open.er-api.com, gọi thẳng (có CORS public)
-═══════════════════════════════════════════════════════════ */
+/* ================================================================
+   [3] USD/VND — gọi thẳng, không cần proxy
+================================================================ */
 function fetchUSDVND() {
   return fetchJSON('https://open.er-api.com/v6/latest/USD', 8000)
     .then(function(d) {
@@ -484,60 +473,56 @@ function fetchUSDVND() {
       throw new Error('VND missing');
     })
     .catch(function(e) {
-      console.warn('[USD/VND] lỗi:', e.message);
+      console.warn('[USD/VND]', e.message);
       return null;
     });
 }
 
-/* ═══════════════════════════════════════════════════════════
-   RSS NEWS — fetch XML qua Cloudflare Worker + DOMParser
-   Không dùng rss2json.com.
-═══════════════════════════════════════════════════════════ */
-function fetchRSS(url) {
-  /* Lấy source label từ hostname */
-  var srcLabel = url
-    .replace('https://','').replace('http://','')
-    .split('/')[0]
-    .replace('www.','').replace('feeds.','')
-    .split('.')[0].toUpperCase().slice(0, 8);
+/* ================================================================
+   [4] RSS NEWS — parse XML qua Worker, không dùng rss2json
+================================================================ */
+var VN_RSS = [
+  'https://cafef.vn/tai-chinh-ngan-hang.rss',
+  'https://cafef.vn/thi-truong-chung-khoan.rss',
+  'https://vneconomy.vn/chung-khoan.rss',
+  'https://nhipcaudautu.vn/feed/',
+];
+var INT_RSS = [
+  'https://feeds.reuters.com/reuters/businessNews',
+  'https://feeds.apnews.com/apnews/economy',
+  'https://cafef.vn/the-gioi.rss',
+];
+var VN_KW = ['ngân hàng nhà nước','lãi suất','tín dụng','chính phủ','nghị quyết','chính sách','gdp','lạm phát','tỷ giá','ngoại hối','đầu tư công','ngân sách','chứng khoán','vnindex','cổ phiếu','tăng trưởng'];
+var INT_KW = ['fed','federal reserve','interest rate','trump','tariff','trade war','inflation','gdp','white house','treasury','powell','recession','rate cut','rate hike','china','ukraine','war'];
 
+function fetchRSS(url) {
+  var srcLabel = url.replace('https://','').replace('http://','')
+    .split('/')[0].replace('www.','').replace('feeds.','')
+    .split('.')[0].toUpperCase().slice(0,8);
   return fetchText(PROXY(url), 12000)
     .then(function(text) {
       var xml = new DOMParser().parseFromString(text, 'text/xml');
-      /* Kiểm tra parse error */
       if (xml.querySelector('parsererror')) throw new Error('XML parse error');
       var items = Array.from(xml.querySelectorAll('item'));
       if (!items.length) throw new Error('no items');
-      return items.slice(0, 20).map(function(item) {
-        var titleEl  = item.querySelector('title');
-        var linkEl   = item.querySelector('link');
-        var guidEl   = item.querySelector('guid');
-        var pubEl    = item.querySelector('pubDate');
+      return items.slice(0,20).map(function(item) {
+        var tEl = item.querySelector('title');
+        var lEl = item.querySelector('link');
+        var gEl = item.querySelector('guid');
+        var pEl = item.querySelector('pubDate');
         return {
-          title:   titleEl  ? titleEl.textContent.trim()  : '',
-          link:    linkEl   ? linkEl.textContent.trim()   : (guidEl ? guidEl.textContent.trim() : '#'),
-          pubDate: pubEl    ? pubEl.textContent           : '',
+          title:   tEl ? tEl.textContent.trim() : '',
+          link:    lEl ? lEl.textContent.trim() : (gEl ? gEl.textContent.trim() : '#'),
+          pubDate: pEl ? pEl.textContent : '',
           source:  srcLabel,
         };
       }).filter(function(n) { return n.title; });
     })
     .catch(function(e) {
-      console.warn('[RSS] lỗi ' + url.slice(0,50) + ':', e.message);
+      if (DEBUG) console.warn('[RSS]', url.slice(0,50), e.message);
       return [];
     });
 }
-
-/* ── Keyword filter ── */
-var VN_KW = [
-  'ngân hàng nhà nước','lãi suất','tín dụng','chính phủ','nghị quyết',
-  'chính sách','gdp','lạm phát','tỷ giá','ngoại hối','đầu tư công',
-  'ngân sách','chứng khoán','vnindex','cổ phiếu','tăng trưởng','kinh tế'
-];
-var INT_KW = [
-  'fed','federal reserve','interest rate','trump','tariff','trade war',
-  'inflation','gdp','white house','treasury','powell','recession',
-  'rate cut','rate hike','china','ukraine','war','sanctions'
-];
 
 function processNews(items, keywords) {
   var seen = {};
@@ -545,85 +530,40 @@ function processNews(items, keywords) {
   items.forEach(function(n) {
     if (n && n.title && !seen[n.title]) { seen[n.title] = 1; unique.push(n); }
   });
-  unique.sort(function(a, b) { return new Date(b.pubDate) - new Date(a.pubDate); });
+  unique.sort(function(a,b) { return new Date(b.pubDate) - new Date(a.pubDate); });
   var filtered = unique.filter(function(n) {
-    var t = (n.title || '').toLowerCase();
+    var t = (n.title||'').toLowerCase();
     return keywords.some(function(k) { return t.indexOf(k) !== -1; });
   });
   if (filtered.length < 4) {
     var extras = unique.filter(function(n) { return filtered.indexOf(n) === -1; });
     filtered = filtered.concat(extras);
   }
-  return filtered.slice(0, 8);
+  return filtered.slice(0,8);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   SYMBOL DEFINITIONS
-═══════════════════════════════════════════════════════════ */
-
-/* Yahoo Finance symbols — thế giới */
-var WORLD_SYMS = [
-  {sym:'^GSPC',    label:'S&P 500'   },
-  {sym:'^IXIC',    label:'Nasdaq'    },
-  {sym:'^DJI',     label:'Dow Jones' },
-  {sym:'^N225',    label:'Nikkei'    },
-  {sym:'^HSI',     label:'Hang Seng' },
-  {sym:'000001.SS',label:'Shanghai'  },
-  {sym:'^FTSE',    label:'FTSE 100'  },
-];
-
-/* Yahoo Finance symbols — hàng hóa */
-var COMM_SYMS = [
-  {sym:'GC=F', label:'Vàng',    unit:'USD/oz' },
-  {sym:'SI=F', label:'Bạc',     unit:'USD/oz' },
-  {sym:'CL=F', label:'Dầu WTI', unit:'USD/bbl'},
-];
-
-/* RSS feeds — tin trong nước */
-var VN_RSS = [
-  'https://cafef.vn/tai-chinh-ngan-hang.rss',
-  'https://cafef.vn/thi-truong-chung-khoan.rss',
-  'https://vneconomy.vn/chung-khoan.rss',
-  'https://nhipcaudautu.vn/feed/',
-];
-
-/* RSS feeds — tin quốc tế */
-var INT_RSS = [
-  'https://feeds.reuters.com/reuters/businessNews',
-  'https://feeds.apnews.com/apnews/economy',
-  'https://cafef.vn/the-gioi.rss',
-];
-
-/* ═══════════════════════════════════════════════════════════
+/* ================================================================
    MAIN FETCH ORCHESTRATOR
-   - Tất cả fetch song song qua Promise.allSettled
-   - Mỗi hàm tự bắt lỗi → app không crash
-═══════════════════════════════════════════════════════════ */
+================================================================ */
 function fetchAll() {
   var now = Date.now();
   var tasks = [];
 
-  /* ── [1] VN Indices — VNDirect qua proxy, refresh 5 phút ── */
+  /* VN Index từ data.json — refresh mỗi 5 phút */
   if (now - LIVE.ts.vn > 5 * 60 * 1000) {
     tasks.push(
-      fetchVNIndices().then(function(data) {
-        if (!data) return;
-        if (data.VNINDEX) Object.assign(LIVE.vni,   data.VNINDEX);
-        if (data.VN30)    Object.assign(LIVE.vn30,  data.VN30);
-        if (data.VNMIDCAP)Object.assign(LIVE.vnmid, data.VNMIDCAP);
-        LIVE.ts.vn = Date.now();
-      })
+      fetchLocalData().then(function() { LIVE.ts.vn = Date.now(); })
     );
   }
 
-  /* ── [2] World + Hàng hóa + USD/VND — Yahoo + erapi, refresh 15 phút ── */
+  /* World + Comm + USD/VND — refresh mỗi 15 phút */
   if (now - LIVE.ts.world > 15 * 60 * 1000) {
-    var worldTasks = WORLD_SYMS.map(function(w) {
+    var wTasks = WORLD_SYMS.map(function(w) {
       return fetchYahoo(w.sym).then(function(r) {
         if (r) LIVE.world[w.sym] = Object.assign({}, r, {label: w.label});
       });
     });
-    var commTasks = COMM_SYMS.map(function(c) {
+    var cTasks = COMM_SYMS.map(function(c) {
       return fetchYahoo(c.sym).then(function(r) {
         if (r) LIVE.comm[c.sym] = Object.assign({}, r, {label: c.label, unit: c.unit});
       });
@@ -631,20 +571,15 @@ function fetchAll() {
     var exTask = fetchUSDVND().then(function(rate) {
       if (rate) LIVE.usdvnd = rate;
     });
-
     tasks.push(
-      Promise.all(worldTasks.concat(commTasks).concat([exTask])).then(function() {
+      Promise.all(wTasks.concat(cTasks).concat([exTask])).then(function() {
         LIVE.ts.world = Date.now();
-        if (DEBUG) {
-          console.log('[World] keys:', Object.keys(LIVE.world));
-          console.log('[Comm] keys:', Object.keys(LIVE.comm));
-          console.log('[USD/VND]', LIVE.usdvnd);
-        }
+        if (DEBUG) console.log('[World]', Object.keys(LIVE.world), '| [Comm]', Object.keys(LIVE.comm));
       })
     );
   }
 
-  /* ── [3] News RSS — proxy + DOMParser, refresh 30 phút ── */
+  /* News RSS — refresh mỗi 30 phút */
   if (now - LIVE.ts.news > 30 * 60 * 1000) {
     tasks.push(
       Promise.all(VN_RSS.map(fetchRSS)).then(function(results) {
@@ -665,23 +600,17 @@ function fetchAll() {
 
   return Promise.allSettled(tasks).then(function() {
     if (DEBUG) console.log('[LIVE SNAPSHOT]', {
-      vni:       LIVE.vni.value,
-      vn30:      LIVE.vn30.value,
-      vnmid:     LIVE.vnmid.value,
-      world:     Object.keys(LIVE.world),
-      comm:      Object.keys(LIVE.comm),
-      usdvnd:    LIVE.usdvnd,
-      newsVN:    LIVE.news.vn.length,
-      newsWorld: LIVE.news.world.length,
+      vni: LIVE.vni.value, vn30: LIVE.vn30.value, vnmid: LIVE.vnmid.value,
+      vnUpdated: LIVE.vnUpdated,
+      world: Object.keys(LIVE.world), comm: Object.keys(LIVE.comm),
+      usdvnd: LIVE.usdvnd, newsVN: LIVE.news.vn.length, newsWorld: LIVE.news.world.length,
     });
     updatePulseBar();
     if (currentSection === 'tonghop') render();
   });
 }
 
-/* ═══════════════════════════════════════════════════════════
-   PULSE BAR UPDATER
-═══════════════════════════════════════════════════════════ */
+/* ── PULSE BAR ── */
 function updatePulseBar() {
   function setPI(piId, valId, chgId, d) {
     if (!d || d.value == null) return;
@@ -692,40 +621,35 @@ function updatePulseBar() {
     chgEl.textContent = (d.pct >= 0 ? '▲ +' : '▼ ') + fmt(Math.abs(d.pct)) + '%';
     chgEl.className = 'pi-chg ' + c;
   }
-
-  var vni  = LIVE.vni.value  != null ? LIVE.vni   : PH.vni;
-  var vn30 = LIVE.vn30.value != null ? LIVE.vn30  : PH.vn30;
-  var vnm  = LIVE.vnmid.value!= null ? LIVE.vnmid : PH.vnmid;
-  var fgn  = LIVE.foreign.net!= null ? LIVE.foreign: PH.foreign;
-
+  var vni  = LIVE.vni.value   != null ? LIVE.vni   : PH.vni;
+  var vn30 = LIVE.vn30.value  != null ? LIVE.vn30  : PH.vn30;
+  var vnm  = LIVE.vnmid.value != null ? LIVE.vnmid : PH.vnmid;
+  var fgn  = LIVE.foreign.net != null ? LIVE.foreign : PH.foreign;
   setPI('pi-vni',  'pv-vni',  'pc-vni',  vni);
   setPI('pi-vn30', 'pv-vn30', 'pc-vn30', vn30);
   setPI('pi-vnmid','pv-vnmid','pc-vnmid', vnm);
-
   var fNet = fgn.net || 0;
   document.getElementById('pi-foreign').className = 'pi ' + cls(fNet);
   document.getElementById('pv-foreign').textContent = fmtT(fNet * 1e9);
   var fChgEl = document.getElementById('pc-foreign');
   fChgEl.textContent = fNet >= 0 ? 'Mua ròng' : 'Bán ròng';
   fChgEl.className = 'pi-chg ' + cls(fNet);
-
-  /* Dot xanh = data thật, vàng = placeholder */
   var dot = document.getElementById('pbDot');
   if (dot) dot.style.background = LIVE.vni.value != null ? 'var(--green)' : 'var(--yellow)';
 }
 
-/* ═══════════════════════════════════════════════════════════
-   RENDERERS — giữ nguyên hoàn toàn
-═══════════════════════════════════════════════════════════ */
+/* ================================================================
+   RENDERERS
+================================================================ */
 var newsTab = 'vn';
 
 function renderNewsItems(items) {
   if (!items || !items.length) return '<div class="news-empty">Đang tải tin tức...</div>';
-  return items.slice(0, 6).map(function(n) {
-    return '<a href="' + (n.link || '#') + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">'
+  return items.slice(0,6).map(function(n) {
+    return '<a href="' + (n.link||'#') + '" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">'
       + '<div class="news-item">'
-      + '<div class="news-src">' + (n.source || '') + '</div>'
-      + '<div class="news-title">' + (n.title || '') + '</div>'
+      + '<div class="news-src">' + (n.source||'') + '</div>'
+      + '<div class="news-title">' + (n.title||'') + '</div>'
       + '<div class="news-time">' + timeAgo(n.pubDate) + '</div>'
       + '</div></a>';
   }).join('');
@@ -736,16 +660,15 @@ function renderTongHop() {
   var fgn = LIVE.foreign.net != null ? LIVE.foreign : PH.foreign;
   var sectors = PH.sectors;
   var maxSec = Math.max.apply(null, sectors.map(function(s) { return Math.abs(s.pct); })) || 1;
+  var isVNLive = LIVE.vni.value != null;
 
   var worldHTML = WORLD_SYMS.map(function(w) {
     var d = LIVE.world[w.sym];
     var c = d ? cls(d.pct) : 'flat';
-    var valStr = d ? fmtI(Math.round(d.value)) : '--';
-    var pctStr = d ? (sign(d.pct) + fmt(Math.abs(d.pct)) + '%') : '--';
     return '<div class="wc">'
       + '<div class="wc-name">' + w.label + '</div>'
-      + '<div class="wc-val ' + c + '">' + valStr + '</div>'
-      + '<div class="wc-pct ' + c + '">' + pctStr + '</div>'
+      + '<div class="wc-val ' + c + '">' + (d ? fmtI(Math.round(d.value)) : '--') + '</div>'
+      + '<div class="wc-pct ' + c + '">' + (d ? (sign(d.pct) + fmt(Math.abs(d.pct)) + '%') : '--') + '</div>'
       + '</div>';
   }).join('');
 
@@ -754,7 +677,7 @@ function renderTongHop() {
     var cc = d ? cls(d.pct) : 'flat';
     return '<div class="cc">'
       + '<div class="cc-name">' + c.label + ' <span style="font-weight:400;font-size:9px;color:var(--text3)">' + c.unit + '</span></div>'
-      + '<div class="cc-val ' + cc + '">' + (d ? fmt(d.value, 2) : '--') + '</div>'
+      + '<div class="cc-val ' + cc + '">' + (d ? fmt(d.value,2) : '--') + '</div>'
       + '<div class="cc-pct ' + cc + '">' + (d ? (sign(d.pct) + fmt(d.pct) + '%') : '--') + '</div>'
       + '</div>';
   }).join('');
@@ -764,7 +687,7 @@ function renderTongHop() {
     + '<div class="cc-pct" style="color:var(--text3)">Tỷ giá</div>'
     + '</div>';
 
-  var sectorsHTML = sectors.slice().sort(function(a,b) { return b.pct - a.pct; }).map(function(s) {
+  var sectorsHTML = sectors.slice().sort(function(a,b) { return b.pct-a.pct; }).map(function(s) {
     return '<div class="secrow">'
       + '<div class="secname">' + s.name + '</div>'
       + '<div class="secbar-w"><div class="secbar ' + cls(s.pct) + '" style="width:' + (Math.abs(s.pct)/maxSec*100) + '%"></div></div>'
@@ -778,15 +701,17 @@ function renderTongHop() {
     ? 'THỊ TRƯỜNG TÍCH CỰC — Dòng tiền cải thiện, VN30 dẫn dắt'
     : 'THỊ TRƯỜNG TIÊU CỰC — Áp lực bán gia tăng, thận trọng';
 
-  var isLive = LIVE.vni.value != null;
-  var statusBadge = isLive
-    ? '<span style="color:var(--green);font-size:10px">● LIVE</span>'
-    : '<span style="color:var(--yellow);font-size:10px">● PLACEHOLDER</span>';
+  /* Badge trạng thái VN data */
+  var vnBadge = isVNLive
+    ? '<span class="vn-update-badge">⚡ LIVE · ' + (LIVE.vnUpdated || 'vừa cập nhật') + '</span>'
+    : '<span style="color:var(--yellow);font-size:10px">● Placeholder — chờ GitHub Actions</span>';
 
   return '<div class="ch">'
     + '<div class="ct">📊 Tổng Hợp Thị Trường</div>'
-    + '<div class="csub">Cập nhật: <strong>' + new Date().toLocaleTimeString('vi-VN') + '</strong> &nbsp;' + statusBadge + '</div>'
-    + '</div>'
+    + '<div class="csub" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<span>Cập nhật: <strong>' + new Date().toLocaleTimeString('vi-VN') + '</strong></span>'
+    + vnBadge
+    + '</div></div>'
 
     + '<div class="verdict ' + verdictCls + '">'
     + '<div class="vi">' + verdictIcon + '</div>'
@@ -795,13 +720,13 @@ function renderTongHop() {
     + '<div class="vs">VNINDEX ' + sign(vni.pct) + fmt(vni.pct) + '% — '
     + (vni.up || '?') + ' mã tăng / ' + (vni.dn || '?') + ' mã giảm. '
     + 'Khối ngoại: <span class="' + cls(fgn.net) + '">'
-    + (fgn.net >= 0 ? 'Mua' : 'Bán') + ' ròng ' + fmtT(Math.abs(fgn.net || 0) * 1e9)
+    + (fgn.net >= 0 ? 'Mua' : 'Bán') + ' ròng ' + fmtT(Math.abs(fgn.net||0)*1e9)
     + '</span>.</div></div></div>'
 
     + '<div class="cg2">'
     + '<div class="card"><div class="cl">💱 Dòng tiền khối ngoại</div>'
-    + '<div class="cv ' + cls(fgn.net) + '">' + fmtT((fgn.net || 0) * 1e9) + '</div>'
-    + '<div class="cd">Mua: <strong>' + fmtT((fgn.buy || 0) * 1e9) + '</strong> · Bán: <strong>' + fmtT((fgn.sell || 0) * 1e9) + '</strong></div></div>'
+    + '<div class="cv ' + cls(fgn.net) + '">' + fmtT((fgn.net||0)*1e9) + '</div>'
+    + '<div class="cd">Mua: <strong>' + fmtT((fgn.buy||0)*1e9) + '</strong> · Bán: <strong>' + fmtT((fgn.sell||0)*1e9) + '</strong></div></div>'
 
     + '<div class="card"><div class="cl">🏭 Ngành nổi bật</div>'
     + '<div class="cv up" style="font-size:15px">Tài chính · Tech</div>'
@@ -828,11 +753,11 @@ function renderTongHop() {
 
     + '<div class="block"><div class="btitle">📰 Tin Tức</div>'
     + '<div class="news-tabs">'
-    + '<div class="ntab ' + (newsTab === 'vn' ? 'active' : '') + '" onclick="switchNewsTab(\'vn\')">🇻🇳 Trong nước</div>'
-    + '<div class="ntab ' + (newsTab === 'world' ? 'active' : '') + '" onclick="switchNewsTab(\'world\')">🌐 Quốc tế</div>'
+    + '<div class="ntab ' + (newsTab==='vn'?'active':'') + '" onclick="switchNewsTab(\'vn\')">🇻🇳 Trong nước</div>'
+    + '<div class="ntab ' + (newsTab==='world'?'active':'') + '" onclick="switchNewsTab(\'world\')">🌐 Quốc tế</div>'
     + '</div>'
     + '<div id="newsContent"><div class="news-list">'
-    + renderNewsItems(newsTab === 'vn' ? LIVE.news.vn : LIVE.news.world)
+    + renderNewsItems(newsTab==='vn' ? LIVE.news.vn : LIVE.news.world)
     + '</div></div></div>'
 
     + '<div class="block"><div class="btitle">🏭 Hiệu Suất Ngành Hôm Nay</div>' + sectorsHTML + '</div>'
@@ -846,37 +771,34 @@ function renderTongHop() {
 function switchNewsTab(tab) {
   newsTab = tab;
   var el = document.getElementById('newsContent');
-  if (el) el.innerHTML = '<div class="news-list">' + renderNewsItems(tab === 'vn' ? LIVE.news.vn : LIVE.news.world) + '</div>';
+  if (el) el.innerHTML = '<div class="news-list">' + renderNewsItems(tab==='vn'?LIVE.news.vn:LIVE.news.world) + '</div>';
   document.querySelectorAll('.ntab').forEach(function(el) {
     el.classList.toggle('active',
-      (tab === 'vn' && el.textContent.indexOf('Trong') !== -1) ||
-      (tab === 'world' && el.textContent.indexOf('Quốc') !== -1)
+      (tab==='vn' && el.textContent.indexOf('Trong')!==-1) ||
+      (tab==='world' && el.textContent.indexOf('Quốc')!==-1)
     );
   });
 }
 
-function renderIndex(key, title, icon, sub) {
-  var liveD = key === 'vni' ? LIVE.vni : key === 'vn30' ? LIVE.vn30 : LIVE.vnmid;
-  var phD   = key === 'vni' ? PH.vni  : key === 'vn30' ? PH.vn30  : PH.vnmid;
+function renderIndex(key, title, icon) {
+  var liveD = key==='vni' ? LIVE.vni : key==='vn30' ? LIVE.vn30 : LIVE.vnmid;
+  var phD   = key==='vni' ? PH.vni  : key==='vn30' ? PH.vn30  : PH.vnmid;
   var d = liveD.value != null ? liveD : phD;
   var base = d.value || 1289;
   var c = cls(d.pct);
-
-  var r1 = Math.round(base * 1.005 / 0.5) * 0.5;
-  var r2 = Math.round(base * 1.012 / 0.5) * 0.5;
-  var s1 = Math.round(base * 0.994 / 0.5) * 0.5;
-  var s2 = Math.round(base * 0.984 / 0.5) * 0.5;
+  var r1 = Math.round(base*1.005/0.5)*0.5, r2 = Math.round(base*1.012/0.5)*0.5;
+  var s1 = Math.round(base*0.994/0.5)*0.5, s2 = Math.round(base*0.984/0.5)*0.5;
 
   return '<div class="ch">'
     + '<div class="ct">' + icon + ' ' + title + '</div>'
-    + '<div class="csub">Giá hiện tại: <strong style="color:var(--' + c + ')">' + fmt(d.value) + ' điểm</strong> (' + sign(d.pct) + fmt(d.pct) + '%)</div>'
-    + '</div>'
+    + '<div class="csub">Giá: <strong style="color:var(--' + c + ')">' + fmt(d.value) + ' điểm</strong> (' + sign(d.pct) + fmt(d.pct) + '%)'
+    + (LIVE.vnUpdated ? ' · Cập nhật lúc ' + LIVE.vnUpdated : '') + '</div></div>'
 
-    + '<div class="verdict ' + (d.pct >= 0 ? 'pos' : 'neg') + '">'
-    + '<div class="vi">' + (d.pct >= 0 ? '📈' : '📉') + '</div>'
+    + '<div class="verdict ' + (d.pct>=0?'pos':'neg') + '">'
+    + '<div class="vi">' + (d.pct>=0?'📈':'📉') + '</div>'
     + '<div><div class="vl">Verdict</div>'
-    + '<div class="vt">' + (d.pct >= 0 ? 'UPTREND ngắn hạn — Chuỗi Higher Low' : 'DOWNTREND — Áp lực bán chiếm ưu thế') + '</div>'
-    + '<div class="vs">' + (d.vol ? 'KL ' + fmt(d.vol) + 'M cp. ' : '') + (d.val ? 'GT ' + fmtI(d.val) + ' tỷ.' : '') + '</div>'
+    + '<div class="vt">' + (d.pct>=0?'UPTREND ngắn hạn — Chuỗi Higher Low':'DOWNTREND — Áp lực bán chiếm ưu thế') + '</div>'
+    + '<div class="vs">' + (d.vol?'KL '+fmt(d.vol)+'M · ':'') + (d.val?'GT '+fmtI(d.val)+' tỷ':'') + '</div>'
     + '</div></div>'
 
     + '<div class="block"><div class="btitle">Hỗ Trợ & Kháng Cự</div>'
@@ -888,12 +810,12 @@ function renderIndex(key, title, icon, sub) {
     + '<div class="lvl s"><span class="lvl-lbl">Hỗ trợ 2 (MA50)</span><span class="lvl-val">' + fmt(s2) + '</span></div>'
     + '</div>'
     + '<div class="abox"><span>💡</span><p><strong>Hành động:</strong> '
-    + (d.pct >= 0 ? 'Giữ vị thế. Chờ xác nhận vượt kháng cự ' + fmt(r1) + ' bền vững.' : 'Thận trọng. Chờ tín hiệu đảo chiều rõ ràng.')
+    + (d.pct>=0?'Giữ vị thế. Chờ xác nhận vượt kháng cự '+fmt(r1)+' bền vững.':'Thận trọng. Chờ tín hiệu đảo chiều rõ ràng.')
     + '</p></div></div>'
 
     + '<div class="block"><div class="btitle">3 Kịch Bản Tuần Tới</div>'
     + '<div style="padding:12px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;margin-bottom:8px">'
-    + '<strong class="pos">🟢 TÍCH CỰC (45%)</strong> — Vượt ' + fmt(r1) + ' → mục tiêu ' + fmt(Math.round(base * 1.02)) + '</div>'
+    + '<strong class="pos">🟢 TÍCH CỰC (45%)</strong> — Vượt ' + fmt(r1) + ' → mục tiêu ' + fmt(Math.round(base*1.02)) + '</div>'
     + '<div style="padding:12px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:8px">'
     + '<strong class="flat">🟡 CƠ SỞ (40%)</strong> — Sideways ' + fmt(s1) + '–' + fmt(r1) + '</div>'
     + '<div style="padding:12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px">'
@@ -906,24 +828,20 @@ function renderWatchlist(sub) {
   var sigLbl = {buy:'MUA',watch:'THEO DÕI',avoid:'TRÁNH',neutral:'TRUNG LẬP'};
   var sigCls = {buy:'up',watch:'flat',avoid:'down',neutral:'info'};
   var list = PH.watchlist.slice();
-  if (sub === 'wl-buy')   list = list.filter(function(s) { return s.signal === 'buy'; });
-  if (sub === 'wl-watch') list = list.filter(function(s) { return s.signal === 'watch'; });
-  if (sub === 'wl-avoid') list = list.filter(function(s) { return s.signal === 'avoid'; });
-
+  if (sub==='wl-buy')   list = list.filter(function(s){return s.signal==='buy';});
+  if (sub==='wl-watch') list = list.filter(function(s){return s.signal==='watch';});
+  if (sub==='wl-avoid') list = list.filter(function(s){return s.signal==='avoid';});
   var counts = {};
-  PH.watchlist.forEach(function(s) { counts[s.signal] = (counts[s.signal]||0)+1; });
-
-  return '<div class="ch"><div class="ct">📌 Watchlist</div>'
-    + '<div class="csub">' + list.length + ' cổ phiếu</div></div>'
+  PH.watchlist.forEach(function(s){counts[s.signal]=(counts[s.signal]||0)+1;});
+  return '<div class="ch"><div class="ct">📌 Watchlist</div><div class="csub">' + list.length + ' cổ phiếu</div></div>'
     + '<div class="wlf">'
-    + '<button class="wff ' + (!sub || sub === 'wl-all' ? 'active' : '') + '" onclick="setSubItem(\'wl-all\')">Tất cả (' + PH.watchlist.length + ')</button>'
-    + '<button class="wff ' + (sub === 'wl-buy' ? 'active' : '') + '" onclick="setSubItem(\'wl-buy\')">🟢 Mua (' + (counts.buy||0) + ')</button>'
-    + '<button class="wff ' + (sub === 'wl-watch' ? 'active' : '') + '" onclick="setSubItem(\'wl-watch\')">🟡 Theo dõi (' + (counts.watch||0) + ')</button>'
-    + '<button class="wff ' + (sub === 'wl-avoid' ? 'active' : '') + '" onclick="setSubItem(\'wl-avoid\')">🔴 Tránh (' + (counts.avoid||0) + ')</button>'
+    + '<button class="wff ' + (!sub||sub==='wl-all'?'active':'') + '" onclick="setSubItem(\'wl-all\')">Tất cả (' + PH.watchlist.length + ')</button>'
+    + '<button class="wff ' + (sub==='wl-buy'?'active':'') + '" onclick="setSubItem(\'wl-buy\')">🟢 Mua (' + (counts.buy||0) + ')</button>'
+    + '<button class="wff ' + (sub==='wl-watch'?'active':'') + '" onclick="setSubItem(\'wl-watch\')">🟡 Theo dõi (' + (counts.watch||0) + ')</button>'
+    + '<button class="wff ' + (sub==='wl-avoid'?'active':'') + '" onclick="setSubItem(\'wl-avoid\')">🔴 Tránh (' + (counts.avoid||0) + ')</button>'
     + '</div>'
     + '<div class="block" style="padding:0;overflow:hidden"><table class="dtbl">'
-    + '<thead><tr><th>Mã / Tên</th><th>Giá (đ)</th><th>% Ngày</th><th>Tín Hiệu</th><th>Ghi Chú</th></tr></thead>'
-    + '<tbody>'
+    + '<thead><tr><th>Mã / Tên</th><th>Giá (đ)</th><th>% Ngày</th><th>Tín Hiệu</th><th>Ghi Chú</th></tr></thead><tbody>'
     + list.map(function(s) {
         return '<tr>'
           + '<td><div class="tc">' + s.code + '</div><div class="tn2">' + s.name + '</div></td>'
@@ -938,16 +856,16 @@ function renderWatchlist(sub) {
 
 function renderBrokersTake() {
   var points = [
-    ['Thị trường đang trong giai đoạn <strong>phục hồi có chọn lọc</strong>.','Không phải mọi cổ phiếu đều tăng — dòng tiền tập trung vào ngân hàng lớn và tech.'],
+    ['Thị trường đang trong giai đoạn <strong>phục hồi có chọn lọc</strong>.','Dòng tiền tập trung vào ngân hàng lớn và tech, không phải sóng toàn thị trường.'],
     ['Tôi đang <strong>tích lũy VCB và FPT</strong> trong tuần này.','VCB breakout khỏi tích lũy 3 tuần. FPT là cổ phiếu tech tốt nhất thị trường.'],
     ['<strong>Tránh xa BĐS ngắn hạn.</strong>','NVL, VIC cấu trúc giá xấu, khối ngoại bán ròng liên tiếp.'],
     ['<strong>Quản lý vốn:</strong> ~55% cổ phiếu, 45% tiền mặt.','Không vội đẩy tỷ trọng khi chưa vượt kháng cự bền vững.'],
-    ['<strong>Điểm theo dõi:</strong>','(1) VNINDEX vượt kháng cự? (2) Khối ngoại đảo chiều? (3) Thanh khoản tăng?'],
+    ['<strong>Điểm theo dõi tuần tới:</strong>','(1) VNINDEX vượt kháng cự? (2) Khối ngoại đảo chiều? (3) Thanh khoản tăng?'],
   ];
   return '<div class="ch"><div class="ct">📝 Broker\'s Take</div>'
     + '<div class="csub">Quan điểm thực chiến — cá nhân, rõ ràng, có trách nhiệm</div></div>'
-    + '<div class="tdate">📅 ' + new Date().toLocaleDateString('vi-VN', {weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}) + '</div>'
-    + points.map(function(p, i) {
+    + '<div class="tdate">📅 ' + new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}) + '</div>'
+    + points.map(function(p,i) {
         return '<div class="tpt"><div class="tnum">' + (i+1) + '</div>'
           + '<div class="ttxt"><strong>' + p[0] + '</strong> ' + p[1] + '</div></div>';
       }).join('');
@@ -955,38 +873,31 @@ function renderBrokersTake() {
 
 function renderTrackRecord(sub) {
   var r = PH.trackRecord;
-  var list = sub === 'tr-open'   ? r.filter(function(x) { return x.status === 'open'; })
-           : sub === 'tr-closed' ? r.filter(function(x) { return x.status !== 'open'; })
+  var list = sub==='tr-open'   ? r.filter(function(x){return x.status==='open';})
+           : sub==='tr-closed' ? r.filter(function(x){return x.status!=='open';})
            : r;
-  var wins   = r.filter(function(x) { return x.status === 'closed-win'; }).length;
-  var losses = r.filter(function(x) { return x.status === 'closed-loss'; }).length;
-  var opens  = r.filter(function(x) { return x.status === 'open'; }).length;
-  var wr = wins + losses > 0 ? Math.round(wins / (wins + losses) * 100) : 0;
-  var avg = r.filter(function(x) { return x.status !== 'open'; })
-             .reduce(function(a, x) { return a + x.pct; }, 0) / (wins + losses || 1);
-  var stMap = {
-    'closed-win':  {l:'✅ Đóng lãi',c:'win'},
-    'closed-loss': {l:'❌ Đóng lỗ',c:'loss'},
-    'open':        {l:'🔄 Đang mở',c:'open'},
-  };
-
-  return '<div class="ch"><div class="ct">📚 Track Record</div>'
-    + '<div class="csub">Lịch sử khuyến nghị minh bạch</div></div>'
+  var wins   = r.filter(function(x){return x.status==='closed-win';}).length;
+  var losses = r.filter(function(x){return x.status==='closed-loss';}).length;
+  var opens  = r.filter(function(x){return x.status==='open';}).length;
+  var wr = wins+losses>0 ? Math.round(wins/(wins+losses)*100) : 0;
+  var avg = r.filter(function(x){return x.status!=='open';})
+             .reduce(function(a,x){return a+x.pct;},0) / (wins+losses||1);
+  var stMap = {'closed-win':{l:'✅ Đóng lãi',c:'win'},'closed-loss':{l:'❌ Đóng lỗ',c:'loss'},'open':{l:'🔄 Đang mở',c:'open'}};
+  return '<div class="ch"><div class="ct">📚 Track Record</div><div class="csub">Lịch sử khuyến nghị minh bạch</div></div>'
     + '<div class="trsum">'
     + '<div class="trstat"><div class="trsval up">' + wr + '%</div><div class="trslbl">WIN RATE</div></div>'
-    + '<div class="trstat"><div class="trsval ' + (avg >= 0 ? 'up' : 'down') + '">' + sign(avg) + fmt(avg) + '%</div><div class="trslbl">LỢI NHUẬN TB</div></div>'
+    + '<div class="trstat"><div class="trsval ' + (avg>=0?'up':'down') + '">' + sign(avg) + fmt(avg) + '%</div><div class="trslbl">LỢI NHUẬN TB</div></div>'
     + '<div class="trstat"><div class="trsval flat">' + opens + '</div><div class="trslbl">VỊ THẾ MỞ</div></div>'
     + '</div>'
     + '<div class="wlf">'
-    + '<button class="wff ' + (!sub || sub === 'tr-all' ? 'active' : '') + '" onclick="setSubItem(\'tr-all\')">Tất cả (' + r.length + ')</button>'
-    + '<button class="wff ' + (sub === 'tr-open' ? 'active' : '') + '" onclick="setSubItem(\'tr-open\')">🔄 Đang mở (' + opens + ')</button>'
-    + '<button class="wff ' + (sub === 'tr-closed' ? 'active' : '') + '" onclick="setSubItem(\'tr-closed\')">Đã đóng (' + (wins+losses) + ')</button>'
+    + '<button class="wff ' + (!sub||sub==='tr-all'?'active':'') + '" onclick="setSubItem(\'tr-all\')">Tất cả (' + r.length + ')</button>'
+    + '<button class="wff ' + (sub==='tr-open'?'active':'') + '" onclick="setSubItem(\'tr-open\')">🔄 Đang mở (' + opens + ')</button>'
+    + '<button class="wff ' + (sub==='tr-closed'?'active':'') + '" onclick="setSubItem(\'tr-closed\')">Đã đóng (' + (wins+losses) + ')</button>'
     + '</div>'
     + '<div class="block" style="padding:0;overflow:hidden"><table class="dtbl">'
-    + '<thead><tr><th>Ngày</th><th>Mã</th><th>Hành Động</th><th>Vào</th><th>Hiện Tại</th><th>+/-%</th><th>Trạng Thái</th></tr></thead>'
-    + '<tbody>'
+    + '<thead><tr><th>Ngày</th><th>Mã</th><th>Hành Động</th><th>Vào</th><th>Hiện Tại</th><th>+/-%</th><th>Trạng Thái</th></tr></thead><tbody>'
     + list.map(function(x) {
-        var st = stMap[x.status] || {l:'--',c:'open'};
+        var st = stMap[x.status]||{l:'--',c:'open'};
         return '<tr>'
           + '<td style="color:var(--text3);font-size:12px">' + x.date + '</td>'
           + '<td class="tc">' + x.code + '</td>'
@@ -1000,7 +911,7 @@ function renderTrackRecord(sub) {
     + '</tbody></table></div>';
 }
 
-/* ── Section config & router ── */
+/* ── SECTION CONFIG & ROUTER ── */
 var SCFG = {
   tonghop:      {title:'BÁO CÁO TỔNG HỢP',items:[{id:'th-main',i:'📊',l:'TỔNG QUAN'}]},
   vnindex:      {title:'VNINDEX',items:[{id:'vni-main',i:'📈',l:'PHÂN TÍCH'}]},
@@ -1010,33 +921,29 @@ var SCFG = {
   'brokers-take':{title:"BROKER'S TAKE",items:[{id:'bt-today',i:'📅',l:'HÔM NAY'}]},
   'track-record':{title:'TRACK RECORD',items:[{id:'tr-all',i:'📊',l:'TẤT CẢ'},{id:'tr-open',i:'🔄',l:'ĐANG MỞ'},{id:'tr-closed',i:'✅',l:'ĐÃ ĐÓNG'}]},
 };
-
-var currentSection = 'tonghop';
-var currentSub = null;
+var currentSection = 'tonghop', currentSub = null;
 
 function renderContent(sec, sub) {
-  if (sec === 'tonghop')      return renderTongHop();
-  if (sec === 'vnindex')      return renderIndex('vni',  'VNINDEX',  '📈', sub);
-  if (sec === 'vn30')         return renderIndex('vn30', 'VN30',     '🏦', sub);
-  if (sec === 'vnmidcap')     return renderIndex('vnmid','VNMIDCAP', '📋', sub);
-  if (sec === 'watchlist')    return renderWatchlist(sub);
-  if (sec === 'brokers-take') return renderBrokersTake();
-  if (sec === 'track-record') return renderTrackRecord(sub);
+  if (sec==='tonghop')      return renderTongHop();
+  if (sec==='vnindex')      return renderIndex('vni', 'VNINDEX','📈');
+  if (sec==='vn30')         return renderIndex('vn30','VN30','🏦');
+  if (sec==='vnmidcap')     return renderIndex('vnmid','VNMIDCAP','📋');
+  if (sec==='watchlist')    return renderWatchlist(sub);
+  if (sec==='brokers-take') return renderBrokersTake();
+  if (sec==='track-record') return renderTrackRecord(sub);
   return renderTongHop();
 }
 
 function renderPanel(sec, sub) {
-  var cfg = SCFG[sec] || SCFG.tonghop;
+  var cfg = SCFG[sec]||SCFG.tonghop;
   var defSub = cfg.items[0].id;
   return '<div class="ph"><div class="pt">' + cfg.title + '</div>'
     + '<div class="pmb" onclick="toggleTheme()">🌙</div></div>'
-    + '<div class="psl">SECTIONS</div>'
-    + '<div class="pn">'
+    + '<div class="psl">SECTIONS</div><div class="pn">'
     + cfg.items.map(function(it) {
-        return '<button class="pb2 ' + ((sub || defSub) === it.id ? 'active' : '') + '" onclick="setSubItem(\'' + it.id + '\')">'
+        return '<button class="pb2 ' + ((sub||defSub)===it.id?'active':'') + '" onclick="setSubItem(\'' + it.id + '\')">'
           + '<span class="pbi">' + it.i + '</span> ' + it.l + '</button>';
-      }).join('')
-    + '</div>';
+      }).join('') + '</div>';
 }
 
 function render() {
@@ -1050,73 +957,65 @@ function render() {
 function setSection(sec) {
   currentSection = sec;
   currentSub = SCFG[sec] && SCFG[sec].items[0] ? SCFG[sec].items[0].id : null;
-  document.querySelectorAll('.nb').forEach(function(b) { b.classList.remove('active'); });
-  var btn = document.getElementById('nav-' + sec);
+  document.querySelectorAll('.nb').forEach(function(b){b.classList.remove('active');});
+  var btn = document.getElementById('nav-'+sec);
   if (btn) btn.classList.add('active');
   render();
 }
 
 function setSubItem(sub) {
   currentSub = sub;
-  document.querySelectorAll('.pb2').forEach(function(b) {
-    b.classList.toggle('active', (b.getAttribute('onclick') || '').indexOf("'" + sub + "'") !== -1);
+  document.querySelectorAll('.pb2').forEach(function(b){
+    b.classList.toggle('active',(b.getAttribute('onclick')||'').indexOf("'"+sub+"'")!==-1);
   });
   var ci = document.getElementById('ci');
   ci.innerHTML = renderContent(currentSection, sub);
   ci.style.animation = 'none';
-  requestAnimationFrame(function() { ci.style.animation = 'fadeIn .2s ease'; });
+  requestAnimationFrame(function(){ci.style.animation='fadeIn .2s ease';});
 }
 
-/* ── Theme & Clock ── */
+/* ── THEME & CLOCK ── */
 var isDark = true;
 function toggleTheme() {
   isDark = !isDark;
-  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-  document.getElementById('thIcon').textContent  = isDark ? '🌙' : '☀️';
-  document.getElementById('thLabel').textContent = isDark ? 'Dark Mode' : 'Light Mode';
+  document.documentElement.setAttribute('data-theme', isDark?'dark':'light');
+  document.getElementById('thIcon').textContent  = isDark?'🌙':'☀️';
+  document.getElementById('thLabel').textContent = isDark?'Dark Mode':'Light Mode';
 }
-
 function tick() {
   var now = new Date();
-  var t = now.toLocaleTimeString('vi-VN', {hour12:false});
-  var d = now.toLocaleDateString('vi-VN');
-  document.getElementById('pbClock').textContent = t;
-  document.getElementById('ftTime').textContent  = 'Cập nhật: ' + d + ' ' + t;
-  document.getElementById('sbDate').textContent  = d;
+  document.getElementById('pbClock').textContent = now.toLocaleTimeString('vi-VN',{hour12:false});
+  document.getElementById('ftTime').textContent  = 'Cập nhật: ' + now.toLocaleDateString('vi-VN') + ' ' + now.toLocaleTimeString('vi-VN',{hour12:false});
+  document.getElementById('sbDate').textContent  = now.toLocaleDateString('vi-VN');
 }
-setInterval(tick, 1000);
-tick();
+setInterval(tick,1000); tick();
 
-/* ── INIT — ES5 Promise chain, không dùng async/await ── */
+/* ── INIT ── */
 function init() {
-  render(); /* render placeholder ngay lập tức */
-
-  document.getElementById('ldTxt').textContent = 'Đang kết nối API...';
-  document.getElementById('ldSub').textContent = 'VNDirect · Yahoo Finance · RSS';
+  render();
+  document.getElementById('ldTxt').textContent = 'Đang tải dữ liệu...';
+  document.getElementById('ldSub').textContent = 'VN Index · Yahoo Finance · RSS';
 
   fetchAll()
-    .catch(function(e) {
-      if (DEBUG) console.warn('[init] fetchAll error:', e);
-    })
+    .catch(function(e){ if(DEBUG) console.warn('[init]',e); })
     .then(function() {
       document.getElementById('ldOverlay').style.display = 'none';
       render();
 
-      /* Auto-refresh VN mỗi 5 phút */
+      /* VN data: refresh mỗi 5 phút */
       setInterval(function() {
         LIVE.ts.vn = 0;
         fetchAll();
-      }, 5 * 60 * 1000);
+      }, 5*60*1000);
 
-      /* Auto-refresh World + News mỗi 15 phút */
+      /* World + News: refresh mỗi 15 phút */
       setInterval(function() {
         LIVE.ts.world = 0;
         LIVE.ts.news  = 0;
         fetchAll();
-      }, 15 * 60 * 1000);
+      }, 15*60*1000);
     });
 }
-
 init();
 </script>
 </body>
