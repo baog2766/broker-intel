@@ -1,0 +1,7 @@
+{
+  "updated": "22/04/2026 15:00",
+  "vni":   { "value": 1289.47, "change": 11.23, "pct": 0.88, "vol": 724,  "val": 17840 },
+  "vn30":  { "value": 1318.72, "change": 7.84,  "pct": 0.60, "vol": 0,    "val": 0 },
+  "vnmid": { "value": 984.50,  "change": -2.80, "pct": -0.28,"vol": 0,    "val": 0 },
+  "foreign": { "net": -240, "buy": 1480, "sell": 1720 }
+}
