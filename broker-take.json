@@ -1,0 +1,36 @@
+{
+  "date": "23/04/2026",
+  "verdict": {
+    "signal": "THẬN TRỌNG",
+    "emoji": "🟡",
+    "headline": "Chờ xác nhận vượt đỉnh tháng 2",
+    "summary": "VNINDEX test lại vùng kháng cự cũ, cần breakout bền vững trước khi tăng tỷ trọng"
+  },
+  "market_pulse": {
+    "vnindex": "Tăng +1.24% nhưng đang test kháng cự mạnh 1.880-1.900",
+    "breadth": "Chưa có dữ liệu breadth thật — cần cập nhật sau 15:30",
+    "foreign": "Khối ngoại bán ròng — chưa có tín hiệu đảo chiều",
+    "liquidity": "Thanh khoản ở mức trung bình, chưa bứt phá"
+  },
+  "sector_highlight": {
+    "leader": "Tài chính",
+    "laggard": "Năng lượng",
+    "rotation": "Dòng tiền tập trung ngân hàng và công nghệ, né tránh nguyên vật liệu"
+  },
+  "world_impact": "Thị trường Mỹ phục hồi nhẹ, S&P +1.05% hỗ trợ tâm lý. Tuy nhiên DXY và tỷ giá cần theo dõi.",
+  "key_risk": "Thất bại tại vùng kháng cự 1.880-1.900 có thể gây điều chỉnh",
+  "action": {
+    "for_holder": "Giữ vị thế, trailing stop theo cấu trúc giá",
+    "for_watcher": "Chờ xác nhận vượt 1.900 với thanh khoản tăng mới vào"
+  },
+  "brokers_take": [
+    "🟡 Thị trường tăng nhưng chưa thuyết phục — đang test kháng cự quan trọng 1.880-1.900",
+    "Dòng tiền tập trung ngân hàng (VCB, MBB) và tech (FPT) — các ngành khác chưa rõ nét",
+    "Khối ngoại tiếp tục bán ròng — chưa thấy tín hiệu đảo chiều, không phải yếu tố hỗ trợ",
+    "Chú ý nhóm ngân hàng: nếu VCB giữ được đà và volume tốt, có thể lan tỏa sang midcap",
+    "Ngày mai: Nếu mở cửa trên 1.870 và volume từ đầu phiên — có thể tăng tỷ trọng swing"
+  ],
+  "generated_by": "manual",
+  "model": "claude-pro",
+  "note": "Đây là nhận định mẫu. Cập nhật bằng cách làm theo HUONG_DAN_NHẬN_ĐỊNH.md"
+}
