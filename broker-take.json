@@ -1,36 +1,35 @@
 {
   "date": "23/04/2026",
   "verdict": {
-    "signal": "THẬN TRỌNG",
-    "emoji": "🟡",
-    "headline": "Chờ xác nhận vượt đỉnh tháng 2",
-    "summary": "VNINDEX test lại vùng kháng cự cũ, cần breakout bền vững trước khi tăng tỷ trọng"
+    "signal": "TÍCH CỰC",
+    "emoji": "🟢",
+    "headline": "VNIndex bứt phá mạnh, momentum đang tốt",
+    "summary": "Thị trường tăng 1.24% với thanh khoản khá, Mỹ hồi phục hỗ trợ tâm lý ngày mai"
   },
   "market_pulse": {
-    "vnindex": "Tăng +1.24% nhưng đang test kháng cự mạnh 1.880-1.900",
-    "breadth": "Chưa có dữ liệu breadth thật — cần cập nhật sau 15:30",
-    "foreign": "Khối ngoại bán ròng — chưa có tín hiệu đảo chiều",
-    "liquidity": "Thanh khoản ở mức trung bình, chưa bứt phá"
+    "vnindex": "VNIndex tăng 1.24% lên 1857 — mức tăng đáng kể, cần xác nhận breadth.",
+    "breadth": "Dữ liệu cột xanh/đỏ chưa đủ — cần theo dõi A/D ratio phiên tới.",
+    "foreign": "Dữ liệu khối ngoại chưa cập nhật — chờ xác nhận cuối phiên.",
+    "liquidity": "Khớp lệnh 708 tỷ — thanh khoản ở mức trung bình, chưa có đột biến."
   },
   "sector_highlight": {
-    "leader": "Tài chính",
-    "laggard": "Năng lượng",
-    "rotation": "Dòng tiền tập trung ngân hàng và công nghệ, né tránh nguyên vật liệu"
+    "leader": "Chưa có dữ liệu ngành — theo dõi nhóm dẫn dắt qua VN30",
+    "laggard": "VN30 tăng thấp hơn VNIndex — nhóm vốn hóa lớn kém hơn midcap",
+    "rotation": "Dòng tiền có thể đang chảy từ bluechip sang midcap và smallcap."
   },
-  "world_impact": "Thị trường Mỹ phục hồi nhẹ, S&P +1.05% hỗ trợ tâm lý. Tuy nhiên DXY và tỷ giá cần theo dõi.",
-  "key_risk": "Thất bại tại vùng kháng cự 1.880-1.900 có thể gây điều chỉnh",
+  "world_impact": "S&P 500 +1.05%, Nasdaq +1.64% hỗ trợ tâm lý tích cực. Tuy nhiên Hang Seng -1% và Nikkei -0.75% là rủi ro từ châu Á cần theo dõi.",
+  "key_risk": "VN30 tăng chậm hơn VNIndex — xanh vỏ đỏ lòng là rủi ro chính cần kiểm chứng.",
   "action": {
-    "for_holder": "Giữ vị thế, trailing stop theo cấu trúc giá",
-    "for_watcher": "Chờ xác nhận vượt 1.900 với thanh khoản tăng mới vào"
+    "for_holder": "Giữ nguyên, đặt trailing stop nếu đã có lãi tốt.",
+    "for_watcher": "Chờ xác nhận breadth và dữ liệu khối ngoại trước khi xuống tiền."
   },
   "brokers_take": [
-    "🟡 Thị trường tăng nhưng chưa thuyết phục — đang test kháng cự quan trọng 1.880-1.900",
-    "Dòng tiền tập trung ngân hàng (VCB, MBB) và tech (FPT) — các ngành khác chưa rõ nét",
-    "Khối ngoại tiếp tục bán ròng — chưa thấy tín hiệu đảo chiều, không phải yếu tố hỗ trợ",
-    "Chú ý nhóm ngân hàng: nếu VCB giữ được đà và volume tốt, có thể lan tỏa sang midcap",
-    "Ngày mai: Nếu mở cửa trên 1.870 và volume từ đầu phiên — có thể tăng tỷ trọng swing"
+    "VNIndex tăng 1.24% là tín hiệu tích cực nhưng VN30 chỉ +0.78% — thị trường rộng dẫn dắt hơn bluechip.",
+    "Dòng tiền đang có dấu hiệu luân chuyển từ vốn hóa lớn sang midcap/smallcap — cơ hội ở nhóm này.",
+    "Khối ngoại chưa có số liệu xác nhận — nếu họ mua ròng thì đây là breakout đáng tin, ngược lại cần thận trọng.",
+    "Tỷ giá USD/VND ở 26,243 — ổn định, không gây áp lực lên dòng vốn ngoại lúc này.",
+    "Ngày mai: chờ breadth rõ ràng và số liệu khối ngoại trước 10h, nếu A/D >2 thì có thể mua thêm midcap chọn lọc."
   ],
   "generated_by": "manual",
-  "model": "claude-pro",
-  "note": "Đây là nhận định mẫu. Cập nhật bằng cách làm theo HUONG_DAN_NHẬN_ĐỊNH.md"
+  "model": "claude-pro"
 }
