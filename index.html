@@ -301,15 +301,17 @@ var PROXY = function(url) {
    LIVE STATE — giữ nguyên cấu trúc
 ───────────────────────────────────────────────────────── */
 var LIVE = {
-  vni:    { value:null, change:null, pct:null, vol:null, val:null, up:null, nt:null, dn:null },
-  vn30:   { value:null, change:null, pct:null },
-  vnmid:  { value:null, change:null, pct:null },
-  foreign:{ net:null, buy:null, sell:null },
-  world:  {},
-  comm:   {},
-  usdvnd: null,
-  news:   { vn:[], world:[] },
-  ts:     { vn:0, world:0, news:0 },
+  vni:     { value:null, change:null, pct:null, vol:null, val:null, up:null, nt:null, dn:null },
+  vn30:    { value:null, change:null, pct:null },
+  vnmid:   { value:null, change:null, pct:null },
+  foreign: { net:null, buy:null, sell:null },
+  world:   {},
+  comm:    {},
+  usdvnd:  null,
+  industry:    null,
+  brokerTake:  null,  /* đọc từ broker-take.json */
+  news:        { vn:[], world:[] },
+  ts:      { vn:0, world:0, news:0 },
 };
 
 /* ─────────────────────────────────────────────────────────
@@ -623,23 +625,18 @@ var COMM_SYMS = [
 /* RSS feeds — tin trong nước
    nhipcaudautu.vn/feed/ trả XML không chuẩn → XML parse error → trả []
    Đã có đủ 3 nguồn Cafef + VnEconomy là ổn.                          */
-/* nhipcaudautu.vn/feed/ trả HTML thay vì XML → parse error → đã bỏ */
 var VN_RSS = [
   'https://cafef.vn/tai-chinh-ngan-hang.rss',
   'https://cafef.vn/thi-truong-chung-khoan.rss',
   'https://vneconomy.vn/chung-khoan.rss',
   'https://vneconomy.vn/tai-chinh.rss',
-  'https://baodautu.vn/rss/chung-khoan.rss',
 ];
 
-/* RSS feeds — tin quốc tế (toàn bộ tiếng Việt)
-   Tệp người xem là người Việt → dùng mục "Thế giới" của báo VN.
-   Cafef/VnEconomy/Tuổi Trẻ/VnExpress đều có chuyên mục quốc tế tiếng Việt. */
+/* RSS quốc tế — tiếng Việt, đã kiểm tra hoạt động */
 var INT_RSS = [
-  'https://cafef.vn/the-gioi.rss',
-  'https://vneconomy.vn/the-gioi.rss',
-  'https://tuoitre.vn/rss/the-gioi.rss',
   'https://vnexpress.net/rss/the-gioi.rss',
+  'https://tuoitre.vn/rss/the-gioi.rss',
+  'https://vneconomy.vn/the-gioi.rss',
   'https://cafef.vn/vi-mo-dau-tu.rss',
 ];
 
@@ -741,12 +738,34 @@ function loadDataJson() {
         if (DEBUG) console.log('[data.json] Foreign net:', d.foreign.net, 'tỷ');
       }
 
+      /* Industry — dùng nếu có data thật */
+      if (d.industry && d.industry.length > 0) {
+        LIVE.industry = d.industry;
+        if (DEBUG) console.log('[data.json] Industry:', d.industry.length, 'ngành');
+      }
+
       /* Đánh dấu timestamp để không fetch lại quá sớm */
       LIVE.ts.vn = Date.now() - 4 * 60 * 1000; /* Cho fetch lại sau 1 phút */
       if (DEBUG) console.log('[data.json] OK — cập nhật lúc:', d.updated);
     })
     .catch(function(e) {
       console.warn('[data.json] lỗi:', e.message, '— dùng placeholder');
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOAD BROKER'S TAKE — đọc broker-take.json
+   File này do bạn cập nhật thủ công hoặc workflow tự sinh.
+═══════════════════════════════════════════════════════════ */
+function loadBrokerTake() {
+  return fetchJSON('broker-take.json?t=' + Date.now(), 8000)
+    .then(function(d) {
+      if (!d || !d.verdict) return;
+      LIVE.brokerTake = d;
+      if (DEBUG) console.log('[broker-take.json] OK:', d.verdict.headline);
+    })
+    .catch(function(e) {
+      console.warn('[broker-take.json] lỗi:', e.message);
     });
 }
 
@@ -896,7 +915,9 @@ function renderNewsItems(items) {
 function renderTongHop() {
   var vni = LIVE.vni.value != null ? LIVE.vni : PH.vni;
   var fgn = LIVE.foreign.net != null ? LIVE.foreign : PH.foreign;
-  var sectors = PH.sectors;
+  /* Dùng industry thật từ data.json nếu có, fallback PH */
+  var isIndustryLive = LIVE.industry && LIVE.industry.length > 0;
+  var sectors = isIndustryLive ? LIVE.industry : PH.sectors;
   var maxSec = Math.max.apply(null, sectors.map(function(s) { return Math.abs(s.pct); })) || 1;
 
   var worldHTML = WORLD_SYMS.map(function(w) {
@@ -976,14 +997,24 @@ function renderTongHop() {
     + (LIVE.foreign.net == null ? '<br><span style="font-size:10px;color:var(--yellow)">⚠ Đang dùng số demo, chờ API kết nối</span>' : '')
     + '</div></div>'
 
-    /* Card 2: Ngành nổi bật — DEMO (chưa có API ngành thật) */
-    + '<div class="card"><div class="cl">🏭 Ngành nổi bật <span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px;letter-spacing:0">DEMO</span></div>'
-    + '<div class="cv up" style="font-size:14px">Tài chính · Tech</div>'
-    + '<div class="cd"><div class="chips" style="margin-top:4px">'
-    + sectors.filter(function(s) { return s.pct > 0; }).slice(0,3).map(function(s) {
-        return '<span class="chip up">' + s.name + ' +' + fmt(s.pct) + '%</span>';
-      }).join('')
-    + '</div><span style="font-size:10px;color:var(--yellow)">⚠ Số liệu ngành chưa có API thật</span></div></div>'
+    /* Card 2: Ngành nổi bật — LIVE nếu có industry thật */
+    + (function() {
+        var topSectors = sectors.filter(function(s) { return s.pct > 0; }).slice(0,3);
+        var badge = isIndustryLive
+          ? '<span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px;letter-spacing:0">LIVE</span>'
+          : '<span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px;letter-spacing:0">DEMO</span>';
+        var topName = topSectors.length
+          ? topSectors.slice(0,2).map(function(s){return s.name;}).join(' · ')
+          : '--';
+        var chips = topSectors.map(function(s) {
+          return '<span class="chip up">' + s.name + ' +' + fmt(s.pct) + '%</span>';
+        }).join('');
+        return '<div class="card"><div class="cl">🏭 Ngành nổi bật ' + badge + '</div>'
+          + '<div class="cv up" style="font-size:14px">' + topName + '</div>'
+          + '<div class="cd"><div class="chips" style="margin-top:4px">' + chips + '</div>'
+          + (!isIndustryLive ? '<span style="font-size:10px;color:var(--yellow)">⚠ Chờ workflow 15:30</span>' : '')
+          + '</div></div>';
+      })()
 
     /* Card 3: Tín hiệu kỹ thuật — DEMO */
     + '<div class="card"><div class="cl">📐 Tín hiệu kỹ thuật <span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px;letter-spacing:0">DEMO</span></div>'
@@ -1011,14 +1042,29 @@ function renderTongHop() {
     + renderNewsItems(newsTab === 'vn' ? LIVE.news.vn : LIVE.news.world)
     + '</div></div></div>'
 
-    + '<div class="block"><div class="btitle">🏭 Hiệu Suất Ngành Hôm Nay <span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px">DEMO</span></div>'
-  + '<div style="font-size:11px;color:var(--yellow);margin-bottom:10px;padding:6px 10px;background:rgba(245,158,11,.06);border-radius:6px;border-left:2px solid var(--yellow)">⚠ Số liệu ngành đang dùng dữ liệu demo. Phase 2 sẽ kết nối API ngành thật.</div>'
+    + '<div class="block"><div class="btitle">🏭 Hiệu Suất Ngành Hôm Nay &nbsp;'
+  + (isIndustryLive
+      ? '<span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px">LIVE</span>'
+      : '<span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px">DEMO</span>')
+  + '</div>'
+  + (!isIndustryLive ? '<div style="font-size:11px;color:var(--yellow);margin-bottom:10px;padding:6px 10px;background:rgba(245,158,11,.06);border-radius:6px;border-left:2px solid var(--yellow)">⚠ Đang dùng dữ liệu demo. Workflow sẽ cập nhật số thật lúc 15:30.</div>' : '')
   + sectorsHTML + '</div>'
 
-    + '<div class="pvbox"><div>'
-    + '<div class="pvlbl">📝 Broker\'s Take — Hôm nay</div>'
-    + '<div class="pvtxt" style="color:var(--yellow)">⚠ Nhận định sẽ được bổ sung ở Phase 2. <em style="color:var(--text3)">[DEMO]</em></div>'
-    + '</div><button class="pvbtn" onclick="setSection(\'brokers-take\')">Xem đầy đủ →</button></div>';
+  + (function() {
+      var bt = LIVE.brokerTake;
+      var pvTxt = bt && bt.verdict
+        ? bt.verdict.emoji + ' <strong>' + bt.verdict.headline + '</strong> — ' + bt.verdict.summary
+        : '<span style="color:var(--yellow)">⚠ Chưa có nhận định hôm nay. Cập nhật sau 15:30.</span>';
+      var badge = bt && bt.verdict
+        ? (bt.generated_by === 'auto'
+            ? '<span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 5px;border-radius:10px">AUTO</span>'
+            : '<span style="color:var(--accent2);font-size:9px;font-weight:700;background:rgba(37,99,235,.1);padding:1px 5px;border-radius:10px">MANUAL</span>')
+        : '<span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 5px;border-radius:10px">DEMO</span>';
+      return '<div class="pvbox"><div>'
+        + '<div class="pvlbl">📝 Broker\'s Take — ' + (bt && bt.date ? bt.date : 'Hôm nay') + ' ' + badge + '</div>'
+        + '<div class="pvtxt">' + pvTxt + '</div>'
+        + '</div><button class="pvbtn" onclick="setSection(\'brokers-take\')">Xem đầy đủ →</button></div>';
+    })()
 }
 
 function switchNewsTab(tab) {
@@ -1115,20 +1161,59 @@ function renderWatchlist(sub) {
 }
 
 function renderBrokersTake() {
-  var points = [
-    ['Thị trường đang trong giai đoạn <strong>phục hồi có chọn lọc</strong>.','Không phải mọi cổ phiếu đều tăng — dòng tiền tập trung vào ngân hàng lớn và tech.'],
-    ['Tôi đang <strong>tích lũy VCB và FPT</strong> trong tuần này.','VCB breakout khỏi tích lũy 3 tuần. FPT là cổ phiếu tech tốt nhất thị trường.'],
-    ['<strong>Tránh xa BĐS ngắn hạn.</strong>','NVL, VIC cấu trúc giá xấu, khối ngoại bán ròng liên tiếp.'],
-    ['<strong>Quản lý vốn:</strong> ~55% cổ phiếu, 45% tiền mặt.','Không vội đẩy tỷ trọng khi chưa vượt kháng cự bền vững.'],
-    ['<strong>Điểm theo dõi:</strong>','(1) VNINDEX vượt kháng cự? (2) Khối ngoại đảo chiều? (3) Thanh khoản tăng?'],
-  ];
-  return '<div class="ch"><div class="ct">📝 Broker\'s Take</div>'
-    + '<div class="csub">Quan điểm thực chiến — cá nhân, rõ ràng, có trách nhiệm</div></div>'
-    + '<div class="tdate">📅 ' + new Date().toLocaleDateString('vi-VN', {weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}) + '</div>'
-    + points.map(function(p, i) {
-        return '<div class="tpt"><div class="tnum">' + (i+1) + '</div>'
-          + '<div class="ttxt"><strong>' + p[0] + '</strong> ' + p[1] + '</div></div>';
-      }).join('');
+  var bt = LIVE.brokerTake;
+  var isLive = bt && bt.verdict;
+
+  var genBadge = isLive
+    ? (bt.generated_by === 'auto'
+        ? '<span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px">AUTO</span>'
+        : '<span style="color:var(--accent2);font-size:9px;font-weight:700;background:rgba(37,99,235,.1);padding:1px 6px;border-radius:10px">MANUAL</span>')
+    : '<span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px">DEMO</span>';
+
+  var html = '<div class="ch"><div class="ct">📝 Broker\'s Take ' + genBadge + '</div>'
+    + '<div class="csub">Quan điểm thực chiến — cá nhân, rõ ràng, có trách nhiệm</div></div>';
+
+  if (!isLive) {
+    html += '<div class="tdate">📅 ' + new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}) + '</div>';
+    html += '<div style="padding:14px 16px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;color:var(--text2);font-size:13px;margin-bottom:14px">'
+      + '⚠ Chưa có nhận định hôm nay. Làm theo hướng dẫn để cập nhật broker-take.json.</div>';
+    return html;
+  }
+
+  var vCls = bt.verdict.signal === 'TÍCH CỰC' ? 'pos' : bt.verdict.signal === 'TIÊU CỰC' ? 'neg' : 'neu';
+  html += '<div class="verdict ' + vCls + '">'
+    + '<div class="vi">' + bt.verdict.emoji + '</div>'
+    + '<div><div class="vl">' + bt.verdict.signal + ' — ' + bt.date + '</div>'
+    + '<div class="vt">' + bt.verdict.headline + '</div>'
+    + '<div class="vs">' + bt.verdict.summary + '</div></div></div>';
+
+  html += '<div class="block"><div class="btitle">📊 Market Pulse</div><div class="bbody">'
+    + '📈 ' + (bt.market_pulse.vnindex  || '') + '<br>'
+    + '⚖️ ' + (bt.market_pulse.breadth  || '') + '<br>'
+    + '💱 ' + (bt.market_pulse.foreign  || '') + '<br>'
+    + '💧 ' + (bt.market_pulse.liquidity|| '')
+    + '</div></div>';
+
+  html += '<div class="cg2">'
+    + '<div class="card"><div class="cl">📌 Đang nắm cổ phiếu</div>'
+    + '<div class="cd" style="font-size:13px">' + (bt.action.for_holder  || '--') + '</div></div>'
+    + '<div class="card"><div class="cl">⏳ Đang chờ vào lệnh</div>'
+    + '<div class="cd" style="font-size:13px">' + (bt.action.for_watcher || '--') + '</div></div></div>';
+
+  html += '<div class="tdate">📅 ' + bt.date + '</div>';
+  html += (bt.brokers_take || []).map(function(pt, i) {
+    return '<div class="tpt"><div class="tnum">' + (i+1) + '</div>'
+      + '<div class="ttxt">' + pt + '</div></div>';
+  }).join('');
+
+  if (bt.world_impact || bt.key_risk) {
+    html += '<div class="abox"><span>🌍</span><p>'
+      + (bt.world_impact ? '<strong>Thế giới:</strong> ' + bt.world_impact + '<br>' : '')
+      + (bt.key_risk ? '<strong>⚠ Rủi ro theo dõi:</strong> ' + bt.key_risk : '')
+      + '</p></div>';
+  }
+
+  return html;
 }
 
 function renderTrackRecord(sub) {
@@ -1272,10 +1357,10 @@ function init() {
   document.getElementById('ldTxt').textContent = 'Đang kết nối API...';
   document.getElementById('ldSub').textContent = 'data.json → Yahoo Finance · RSS';
 
-  /* Bước 1: Đọc data.json (do GitHub Actions tạo) — nhanh, không cần proxy */
-  loadDataJson()
+  /* Bước 1: Đọc data.json + broker-take.json song song */
+  Promise.all([loadDataJson(), loadBrokerTake()])
     .then(function() {
-      render(); /* Render ngay với data từ data.json */
+      render(); /* Render ngay với data từ các file JSON */
 
       /* Bước 2: Fetch thêm world/commodity/news từ Yahoo + RSS */
       return fetchAll();
@@ -1291,7 +1376,7 @@ function init() {
          (GitHub Actions chạy lúc 15:30, sau đó file không đổi đến ngày hôm sau)
          Nhưng vẫn fetch world/news theo chu kỳ riêng */
       setInterval(function() {
-        loadDataJson().then(function() {
+        Promise.all([loadDataJson(), loadBrokerTake()]).then(function() {
           LIVE.ts.vn = 0;
           fetchAll();
         });
