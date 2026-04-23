@@ -1,10 +1,10 @@
-name: Update VN Market Data
+name: Update VN Market Data (End of Day)
 
 on:
   schedule:
-    # Chạy mỗi 5 phút, thứ 2-6, từ 9:00-15:05 giờ VN (UTC+7 = UTC 2:00-8:05)
-    - cron: '*/5 2-8 * * 1-5'
-  workflow_dispatch: # Cho phép chạy thủ công
+    # 15:30 giờ Việt Nam = 08:30 UTC
+    - cron: '30 8 * * 1-5'
+  workflow_dispatch:  # Chạy thủ công từ tab Actions
 
 jobs:
   update:
@@ -13,83 +13,155 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install vnstock
-        run: pip install vnstock
+      - run: pip install requests
 
       - name: Fetch VN market data
         run: |
-          python3 << 'EOF'
-          import json
-          import datetime
+          python3 - << 'EOF'
+          import json, datetime, requests, time
+
+          H = {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+              "Accept": "application/json",
+              "Referer": "https://tcinvest.tcbs.com.vn/",
+          }
+
+          def sf(v, d=0.0):
+              try: return float(v) if v is not None else d
+              except: return d
+          def si(v, d=0):
+              try: return int(v) if v is not None else d
+              except: return d
+
+          # --- VN Indices (VNDirect) ---
+          def fetch_vn():
+              url = "https://finfo-api.vndirect.com.vn/v4/stock-prices?code=VNINDEX,VN30,VNMIDCAP&sort=date:desc&size=3"
+              try:
+                  r = requests.get(url, headers=H, timeout=15)
+                  r.raise_for_status()
+                  result = {}
+                  for row in r.json().get("data", []):
+                      code = (row.get("code") or "").strip().upper()
+                      if code not in ["VNINDEX","VN30","VNMIDCAP"]: continue
+                      close = sf(row.get("close"))
+                      if close < 100: close = sf(row.get("adClose"))
+                      if close < 100: close = sf(row.get("referencePrice"))
+                      raw_pct = sf(row.get("pctChange"))
+                      pct = raw_pct * 100 if (raw_pct != 0 and abs(raw_pct) < 0.1) else raw_pct
+                      result[code] = {
+                          "value": round(close, 2),
+                          "change": round(sf(row.get("change")), 2),
+                          "pct": round(pct, 2),
+                          "vol": round(sf(row.get("nmVolume")) / 1e6, 2),
+                          "val": int(sf(row.get("nmValue")) / 1e9),
+                      }
+                      print(f"  {code}: {close:.2f} ({pct:+.2f}%)")
+                  return result
+              except Exception as e:
+                  print(f"  [ERROR] VN: {e}")
+                  return {}
+
+          # --- Khối ngoại (SSI -> VNDirect fallback) ---
+          def fetch_foreign():
+              sources = [
+                  ("https://iboard-query.ssi.com.vn/v2/stock/foreignTrading/all?exchangeCode=HOSE",
+                   {**H, "Referer": "https://iboard.ssi.com.vn/"}),
+                  ("https://finfo-api.vndirect.com.vn/v4/vnmarket/foreign?sort=date:desc&size=1", H),
+              ]
+              for url, h in sources:
+                  try:
+                      r = requests.get(url, headers=h, timeout=15)
+                      r.raise_for_status()
+                      d = r.json()
+                      raw = d.get("data")
+                      item = raw if isinstance(raw, dict) else (raw[0] if isinstance(raw, list) and raw else None)
+                      if not item: continue
+                      buy  = sf(item.get("buyVal") or item.get("buyValue") or item.get("totalBuyValue"))
+                      sell = sf(item.get("sellVal") or item.get("sellValue") or item.get("totalSellValue"))
+                      net  = sf(item.get("netVal") or item.get("netValue")) or (buy - sell)
+                      if abs(buy) > 1e9: buy/=1e9; sell/=1e9; net/=1e9
+                      elif abs(buy) > 1e6: buy/=1e3; sell/=1e3; net/=1e3
+                      r2 = {"net": round(net), "buy": round(buy), "sell": round(sell)}
+                      print(f"  Foreign net: {net:.0f} tỷ")
+                      return r2
+                  except Exception as e:
+                      print(f"  [WARN] {url[:50]}: {e}")
+              print("  [ERROR] Foreign: all fail")
+              return None
+
+          # --- Breadth VNINDEX (TCBS) ---
+          def fetch_breadth():
+              try:
+                  r = requests.get("https://apipubaws.tcbs.com.vn/stock-insight/v1/index/snapshot", headers=H, timeout=15)
+                  r.raise_for_status()
+                  items = r.json() if isinstance(r.json(), list) else r.json().get("data", [])
+                  for item in items:
+                      if (item.get("indexId") or item.get("comGroupCode") or "").upper() == "VNINDEX":
+                          b = {"up":si(item.get("advances")), "nt":si(item.get("noChange")),
+                               "dn":si(item.get("declines")), "ceil":si(item.get("ceiling")), "floor":si(item.get("floor"))}
+                          print(f"  Breadth: up={b['up']} dn={b['dn']} ceil={b['ceil']} floor={b['floor']}")
+                          return b
+              except Exception as e:
+                  print(f"  [WARN] Breadth: {e}")
+              return {"up":0,"nt":0,"dn":0,"ceil":0,"floor":0}
+
+          # --- Main ---
+          tz7 = datetime.timezone(datetime.timedelta(hours=7))
+          now = datetime.datetime.now(tz7)
+          updated = now.strftime("%d/%m/%Y %H:%M")
+          print(f"Bắt đầu: {updated}")
 
           try:
-              from vnstock import Vnstock
+              with open("data.json","r",encoding="utf-8") as f: old = json.load(f)
+          except: old = {}
 
-              stock = Vnstock()
+          print("Fetching VN indices...")
+          vn = fetch_vn()
+          time.sleep(1)
 
-              # Lấy VNINDEX
-              def get_index(ticker):
-                  try:
-                      df = stock.stock(symbol=ticker, source='VCI').quote.history(
-                          start=datetime.date.today().strftime('%Y-%m-%d'),
-                          end=datetime.date.today().strftime('%Y-%m-%d'),
-                          interval='1D'
-                      )
-                      if df is not None and len(df) > 0:
-                          row = df.iloc[-1]
-                          close = float(row.get('close', 0))
-                          open_p = float(row.get('open', close))
-                          change = round(close - open_p, 2)
-                          pct = round(change / open_p * 100, 2) if open_p else 0
-                          vol = round(float(row.get('volume', 0)) / 1e6, 2)
-                          val = round(float(row.get('value', 0)) / 1e9, 0)
-                          return {"value": close, "change": change, "pct": pct, "vol": vol, "val": int(val)}
-                  except Exception as e:
-                      print(f"Error fetching {ticker}: {e}")
-                  return None
+          print("Fetching khối ngoại...")
+          fgn = fetch_foreign()
+          time.sleep(1)
 
-              vni  = get_index('VNINDEX')
-              vn30 = get_index('VN30')
-              vnm  = get_index('VNMIDCAP')
+          print("Fetching breadth...")
+          breadth = fetch_breadth()
 
-              now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7)))
-              updated = now.strftime('%d/%m/%Y %H:%M')
+          vni  = vn.get("VNINDEX")  or old.get("vni",  {})
+          vn30 = vn.get("VN30")     or old.get("vn30", {})
+          vnm  = vn.get("VNMIDCAP") or old.get("vnmid",{})
 
-              # Đọc data cũ để giữ lại nếu fetch lỗi
-              try:
-                  with open('data.json', 'r') as f:
-                      old = json.load(f)
-              except:
-                  old = {}
+          if isinstance(vni, dict) and breadth:
+              vni.update(breadth)
 
-              data = {
-                  "updated": updated,
-                  "vni":    vni   or old.get('vni',   {}),
-                  "vn30":   vn30  or old.get('vn30',  {}),
-                  "vnmid":  vnm   or old.get('vnmid', {}),
-                  "foreign": old.get('foreign', {"net": 0, "buy": 0, "sell": 0})
-              }
+          # Chỉ dùng foreign thật, không dùng số demo
+          old_fgn = old.get("foreign", {})
+          if fgn and fgn.get("net") not in [None, 0]:
+              fgn_final = fgn
+          elif old_fgn.get("net") not in [None, 0, -240, 1480]:
+              fgn_final = old_fgn  # giữ ngày trước
+          else:
+              fgn_final = {"net": None, "buy": None, "sell": None}
 
-              with open('data.json', 'w') as f:
-                  json.dump(data, f, ensure_ascii=False, indent=2)
+          data = {
+              "updated": updated,
+              "vni":     vni,
+              "vn30":    vn30,
+              "vnmid":   vnm,
+              "foreign": fgn_final,
+          }
 
-              print(f"Updated: {updated}")
-              print(f"VNINDEX: {vni}")
-              print(f"VN30: {vn30}")
-              print(f"VNMIDCAP: {vnm}")
+          with open("data.json","w",encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
 
-          except Exception as e:
-              print(f"Fatal error: {e}")
-              import traceback
-              traceback.print_exc()
+          print(f"\nXong! data.json đã cập nhật lúc {updated}")
+          print(f"VNINDEX:  {vni.get('value')} | change:{vni.get('change')} | pct:{vni.get('pct')}%")
+          print(f"VN30:     {vn30.get('value')} | pct:{vn30.get('pct')}%")
+          print(f"VNMIDCAP: {vnm.get('value')} | pct:{vnm.get('pct')}%")
+          print(f"Foreign:  {fgn_final}")
           EOF
 
       - name: Commit data.json
