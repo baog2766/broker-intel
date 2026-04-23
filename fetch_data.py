@@ -2,10 +2,17 @@ import json, datetime, requests, time
 
 TZ7 = datetime.timezone(datetime.timedelta(hours=7))
 NOW  = datetime.datetime.now(TZ7)
-TODAY = NOW.strftime("%Y-%m-%d")          # filter API theo ngày hôm nay
+TODAY = NOW.strftime("%Y-%m-%d")
 UPDATED = NOW.strftime("%d/%m/%Y %H:%M")
 
 print(f"=== Bat dau fetch: {UPDATED} (ngay {TODAY}) ===")
+
+# Cloudflare Worker proxy — route tat ca request qua day
+# de tranh bi block boi IP nuoc ngoai cua GitHub Actions
+PROXY = "https://broker-proxy.baog2766.workers.dev/?url="
+
+def px(url):
+    return PROXY + requests.utils.quote(url, safe="")
 
 H = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
@@ -57,7 +64,7 @@ def fetch_vn():
 
     for url in urls:
         try:
-            r = requests.get(url, headers=H, timeout=15)
+            r = requests.get(px(url), headers=H, timeout=15)
             r.raise_for_status()
             rows = r.json().get("data", [])
             if not rows:
@@ -125,7 +132,7 @@ def fetch_vn():
         try:
             url = (f"https://apipubaws.tcbs.com.vn/stock-insight/v1/index/history"
                    f"?ticker={ticker}&type=index&count=2")
-            r = requests.get(url, headers=H, timeout=15)
+            r = requests.get(px(url), headers=H, timeout=15)
             r.raise_for_status()
             rows = r.json().get("data",[])
             if not rows: continue
@@ -162,7 +169,7 @@ def fetch_foreign():
     ]
     for url, h in sources:
         try:
-            r = requests.get(url, headers=h, timeout=15)
+            r = requests.get(px(url), headers=h, timeout=15)
             r.raise_for_status()
             d = r.json()
             raw = d.get("data")
@@ -187,7 +194,7 @@ def fetch_foreign():
 def fetch_breadth():
     try:
         r = requests.get(
-            "https://apipubaws.tcbs.com.vn/stock-insight/v1/index/snapshot",
+            px("https://apipubaws.tcbs.com.vn/stock-insight/v1/index/snapshot"),
             headers=H, timeout=15)
         r.raise_for_status()
         items = r.json() if isinstance(r.json(), list) else r.json().get("data", [])
@@ -228,7 +235,7 @@ def fetch_industry():
     # TCBS snapshot
     try:
         r = requests.get(
-            "https://apipubaws.tcbs.com.vn/stock-insight/v1/industry/snapshot",
+            px("https://apipubaws.tcbs.com.vn/stock-insight/v1/industry/snapshot"),
             headers=H, timeout=15)
         r.raise_for_status()
         raw   = r.json()
@@ -247,7 +254,7 @@ def fetch_industry():
     for period in ["D","1D","day"]:
         try:
             r = requests.get(
-                f"https://apipubaws.tcbs.com.vn/stock-insight/v1/industry/performance?period={period}",
+                px(f"https://apipubaws.tcbs.com.vn/stock-insight/v1/industry/performance?period={period}"),
                 headers=H, timeout=15)
             r.raise_for_status()
             raw   = r.json()
@@ -264,7 +271,7 @@ def fetch_industry():
     # VNDirect fallback
     try:
         r = requests.get(
-            "https://finfo-api.vndirect.com.vn/v4/industryStatistics?sort=date:desc&size=20",
+            px("https://finfo-api.vndirect.com.vn/v4/industryStatistics?sort=date:desc&size=20"),
             headers=H, timeout=15)
         r.raise_for_status()
         rows = r.json().get("data", [])
