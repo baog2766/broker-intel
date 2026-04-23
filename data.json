@@ -1,11 +1,16 @@
 {
-  "updated": "22/04/2026 22:46",
+  "updated": "23/04/2026 10:15",
   "vni": {
     "value": 1857.3,
     "change": 22.77,
     "pct": 1.24,
     "vol": 708.14,
-    "val": 0
+    "val": 0,
+    "up": 0,
+    "nt": 0,
+    "dn": 0,
+    "ceil": 0,
+    "floor": 0
   },
   "vn30": {
     "value": 2025.41,
@@ -22,8 +27,8 @@
     "val": 0
   },
   "foreign": {
-    "net": -240,
-    "buy": 1480,
-    "sell": 1720
+    "net": null,
+    "buy": null,
+    "sell": null
   }
 }
