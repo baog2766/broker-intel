@@ -1,5 +1,5 @@
 {
-  "updated": "24/04/2026 21:01",
+  "updated": "25/04/2026 00:28",
   "stats": {
     "totalTrades": 0,
     "winRate": 0,
@@ -32,6 +32,28 @@
       "tg_channel": "@MrP_trackrecord",
       "holdingDays": null,
       "tg_url": "https://t.me/MrP_trackrecord/2"
+    },
+    {
+      "id": "EVF-260425-773",
+      "date": "2026-04-25",
+      "createdAt": "2026-04-25 00:28:24",
+      "ticker": "EVF",
+      "action": "buy",
+      "entryLow": 12.0,
+      "entryHigh": 12.0,
+      "target": null,
+      "stopLoss": null,
+      "thesis": "test",
+      "tags": [],
+      "horizon": "swing",
+      "status": "open",
+      "closeDate": "",
+      "closePrice": null,
+      "returnPct": null,
+      "tg_msg_id": "3",
+      "tg_channel": "@MrP_trackrecord",
+      "holdingDays": null,
+      "tg_url": "https://t.me/MrP_trackrecord/3"
     }
   ]
 }
