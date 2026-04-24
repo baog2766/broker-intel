@@ -1099,7 +1099,7 @@ function renderTongHop() {
         var emoji = actionEmoji[cv.action] || '📌';
         var label = actionLabel[cv.action] || cv.action.toUpperCase();
         var aCls  = cv.action === 'buy' ? 'pos' : cv.action === 'sell' ? 'neg' : 'neu';
-        return '<div class="verdict ' + aCls + '" style="margin-bottom:16px;cursor:pointer" onclick="setSection('track-record')">'
+        return '<div class="verdict ' + aCls + '" style="margin-bottom:16px;cursor:pointer" onclick="setSection(\'track-record\')">'
           + '<div class="vi" style="font-size:24px">' + emoji + '</div>'
           + '<div style="flex:1">'
           + '<div class="vl">CONVICTION HÔM NAY — ' + cv.date + '</div>'
@@ -1497,10 +1497,10 @@ function renderWatchlist(sub) {
     + (isLive && LIVE.watchlistData.updated ? ' · Cập nhật: ' + LIVE.watchlistData.updated : '')
     + '</div></div>'
     + '<div class="wlf">'
-    + '<button class="wff ' + (!sub||sub==='wl-all'?'active':'') + '" onclick="setSubItem('wl-all')">Tất cả (' + list.length + ')</button>'
-    + '<button class="wff ' + (sub==='wl-buy'?'active':'') + '" onclick="setSubItem('wl-buy')">🟢 Mua (' + (counts.buy||0) + ')</button>'
-    + '<button class="wff ' + (sub==='wl-watch'?'active':'') + '" onclick="setSubItem('wl-watch')">🟡 Theo dõi (' + (counts.watch||0) + ')</button>'
-    + '<button class="wff ' + (sub==='wl-avoid'?'active':'') + '" onclick="setSubItem('wl-avoid')">🔴 Tránh (' + (counts.avoid||0) + ')</button>'
+    + '<button class="wff ' + (!sub||sub==='wl-all'?'active':'') + '" onclick="setSubItem(\'wl-all\')">Tất cả (' + list.length + ')</button>'
+    + '<button class="wff ' + (sub==='wl-buy'?'active':'') + '" onclick="setSubItem(\'wl-buy\')">🟢 Mua (' + (counts.buy||0) + ')</button>'
+    + '<button class="wff ' + (sub==='wl-watch'?'active':'') + '" onclick="setSubItem(\'wl-watch\')">🟡 Theo dõi (' + (counts.watch||0) + ')</button>'
+    + '<button class="wff ' + (sub==='wl-avoid'?'active':'') + '" onclick="setSubItem(\'wl-avoid\')">🔴 Tránh (' + (counts.avoid||0) + ')</button>'
     + '</div>';
 
   if (filtered.length === 0) {
@@ -1660,9 +1660,9 @@ function renderTrackRecord(sub) {
       + '<div class="trstat"><div class="trsval flat">' + opens.length + '</div><div class="trslbl">VỊ THẾ MỞ</div></div>'
       + '</div>'
       + '<div class="wlf">'
-      + '<button class="wff ' + (!sub||sub==='tr-all'?'active':'') + '" onclick="setSubItem('tr-all')">Tất cả (' + (opens.length+closed.length) + ')</button>'
-      + '<button class="wff ' + (sub==='tr-open'?'active':'') + '" onclick="setSubItem('tr-open')">🔄 Đang mở (' + opens.length + ')</button>'
-      + '<button class="wff ' + (sub==='tr-closed'?'active':'') + '" onclick="setSubItem('tr-closed')">Đã đóng (' + closed.length + ')</button>'
+      + '<button class="wff ' + (!sub||sub==='tr-all'?'active':'') + '" onclick="setSubItem(\'tr-all\')">Tất cả (' + (opens.length+closed.length) + ')</button>'
+      + '<button class="wff ' + (sub==='tr-open'?'active':'') + '" onclick="setSubItem(\'tr-open\')">🔄 Đang mở (' + opens.length + ')</button>'
+      + '<button class="wff ' + (sub==='tr-closed'?'active':'') + '" onclick="setSubItem(\'tr-closed\')">Đã đóng (' + closed.length + ')</button>'
       + '</div>';
 
     if (displayList.length === 0) {
