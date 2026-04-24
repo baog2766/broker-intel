@@ -1042,6 +1042,26 @@ function renderTongHop() {
     + renderNewsItems(newsTab === 'vn' ? LIVE.news.vn : LIVE.news.world)
     + '</div></div></div>'
 
+    + (function(){
+        var bt = LIVE.brokerTake;
+        var todayVN2 = new Date().toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});
+        var btStale2 = bt && bt.date && bt.date.replace(/\/0(\d)\//g,'/$1/') !== todayVN2.replace(/\/0(\d)\//g,'/$1/');
+        var pvTxt = bt && bt.verdict
+          ? bt.verdict.emoji + ' <strong>' + bt.verdict.headline + '</strong> — ' + bt.verdict.summary
+          : '<span style="color:var(--yellow)">⚠ Chưa có nhận định hôm nay. Cập nhật sau 15:30.</span>';
+        var badge = bt && bt.verdict
+          ? (btStale2
+              ? '<span style="color:#f87171;font-size:9px;font-weight:700;background:rgba(239,68,68,.1);padding:1px 5px;border-radius:10px">NGÀY CŨ</span>'
+              : bt.generated_by === 'auto'
+                ? '<span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 5px;border-radius:10px">AUTO</span>'
+                : '<span style="color:var(--accent2);font-size:9px;font-weight:700;background:rgba(37,99,235,.1);padding:1px 5px;border-radius:10px">MANUAL</span>')
+          : '<span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 5px;border-radius:10px">DEMO</span>';
+        return '<div class="pvbox"><div>'
+          + '<div class="pvlbl">📝 Broker\'s Take — ' + (bt && bt.date ? bt.date : 'Hôm nay') + ' ' + badge + '</div>'
+          + '<div class="pvtxt" style="' + (btStale2?'color:#f87171':'') + '">' + (btStale2 ? '⚠ Nhận định ngày cũ (' + (bt?bt.date:'--') + ') — cần cập nhật hôm nay' : pvTxt) + '</div>'
+          + '</div><button class="pvbtn" onclick="setSection(\'brokers-take\')">Xem đầy đủ →</button></div>';
+      })();
+}
 
 function renderIndex(key, title, icon, sub) {
   var liveD = key==='vni' ? LIVE.vni : key==='vn30' ? LIVE.vn30 : LIVE.vnmid;
