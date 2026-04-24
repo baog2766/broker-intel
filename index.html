@@ -86,6 +86,13 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .vs{font-size:12px;color:var(--text2);margin-top:3px;line-height:1.5}
 .cg2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
 .cg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px}
+.badge-up{color:var(--green);font-size:11px;font-weight:700;background:var(--green2);padding:2px 8px;border-radius:10px}
+.badge-dn{color:var(--red);font-size:11px;font-weight:700;background:var(--red2);padding:2px 8px;border-radius:10px}
+.badge-nt{color:var(--yellow);font-size:11px;font-weight:700;background:var(--yellow2);padding:2px 8px;border-radius:10px}
+.badge-up{color:var(--green);font-size:10px;font-weight:700;background:var(--green2);padding:2px 8px;border-radius:10px}
+.badge-dn{color:var(--red);font-size:10px;font-weight:700;background:var(--red2);padding:2px 8px;border-radius:10px}
+.badge-nt{color:var(--yellow);font-size:10px;font-weight:700;background:var(--yellow2);padding:2px 8px;border-radius:10px}
+.bbody{padding:4px 2px}
 .card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;transition:border-color .2s}
 .card:hover{border-color:var(--border2)}
 .cl{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:7px;display:flex;align-items:center;gap:6px}
@@ -310,7 +317,7 @@ var LIVE = {
   comm:    {},
   usdvnd:  null,
   industry:    null,
-  technical:   null,  /* indicators VNINDEX từ data.json */
+  technical:   {},    /* indicators: {vni:{...}, vn30:{...}, vnmid:{...}} */
   brokerTake:  null,  /* đọc từ broker-take.json */
   news:        { vn:[], world:[] },
   ts:      { vn:0, world:0, news:0 },
@@ -745,10 +752,20 @@ function loadDataJson() {
         LIVE.industry = d.industry;
         if (DEBUG) console.log('[data.json] Industry:', d.industry.length, 'ngành');
       }
-      /* Technical indicators VNINDEX */
-      if (d.technical && d.technical.ma20) {
-        LIVE.technical = d.technical;
-        if (DEBUG) console.log('[data.json] Technical: ma20=' + d.technical.ma20 + ' rsi=' + d.technical.rsi14);
+      /* Technical indicators — luu theo key vni/vn30/vnmid */
+      if (d.technical) {
+        /* Format cu: flat object (chi VNINDEX) */
+        if (d.technical.ma20) {
+          LIVE.technical['vni'] = d.technical;
+        }
+        /* Format moi: {vni:{...}, vn30:{...}, vnmid:{...}} */
+        if (d.technical.vni) LIVE.technical['vni']   = d.technical.vni;
+        if (d.technical.vn30) LIVE.technical['vn30']  = d.technical.vn30;
+        if (d.technical.vnmid) LIVE.technical['vnmid'] = d.technical.vnmid;
+        if (DEBUG) {
+          var t = LIVE.technical['vni'] || {};
+          console.log('[data.json] Technical vni: ma20=' + t.ma20 + ' rsi=' + t.rsi14);
+        }
       }
 
       /* Đánh dấu timestamp để không fetch lại quá sớm */
@@ -1092,32 +1109,50 @@ function switchNewsTab(tab) {
 }
 
 function renderIndex(key, title, icon, sub) {
-  var liveD = key === 'vni' ? LIVE.vni : key === 'vn30' ? LIVE.vn30 : LIVE.vnmid;
-  var phD   = key === 'vni' ? PH.vni  : key === 'vn30' ? PH.vn30  : PH.vnmid;
-  var d  = liveD.value != null ? liveD : phD;
-  var tc = (key === 'vni' && LIVE.technical && LIVE.technical.ma20) ? LIVE.technical : null;
-  var base = d.value || 1289;
-  var c  = cls(d.pct);
+  var liveD = key==='vni' ? LIVE.vni : key==='vn30' ? LIVE.vn30 : LIVE.vnmid;
+  var phD   = key==='vni' ? PH.vni   : key==='vn30' ? PH.vn30   : PH.vnmid;
+  var d     = liveD.value != null ? liveD : phD;
+  var c     = cls(d.pct);
+  /* Lay technical data: chi VNINDEX co, VN30/VNMIDCAP dung placeholder */
+  /* Lay technical data cho tung index */
+  var _techKey = key === 'vni' ? 'vni' : key === 'vn30' ? 'vn30' : 'vnmid';
+  var _techObj = LIVE.technical;
+  var tc = null;
+  if (_techObj) {
+    /* Format moi: {vni:{...}, vn30:{...}} */
+    if (_techObj[_techKey] && _techObj[_techKey].ma20) {
+      tc = _techObj[_techKey];
+    }
+    /* Format cu: truc tiep cho VNINDEX */
+    else if (key === 'vni' && _techObj.ma20) {
+      tc = _techObj;
+    }
+  }
+  var isLive = !!tc;
+  var prefix = key==='vni' ? 'vni' : key==='vn30' ? 'v30' : 'vmc';
 
-  /* Header */
+  /* === Header chung === */
   var html = '<div class="ch">'
     + '<div class="ct">' + icon + ' ' + title
-    + (tc ? ' <span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px">LIVE DATA</span>'
-           : ' <span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px">DEMO</span>')
+    + (isLive
+        ? ' <span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px">LIVE DATA</span>'
+        : ' <span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px">DEMO</span>')
     + '</div>'
     + '<div class="csub">Giá hiện tại: <strong style="color:var(--' + c + ')">' + fmt(d.value) + ' điểm</strong>'
     + ' (' + sign(d.pct) + fmt(d.pct) + '%)'
-    + (d.vol ? ' · KL: <strong>' + fmt(d.vol) + 'M cp</strong>' : '')
+    + (d.vol ? ' &nbsp;·&nbsp; KL: <strong>' + fmt(d.vol) + 'M cp</strong>' : '')
     + '</div></div>';
 
-  if (!tc) {
-    /* DEMO mode — hien thi don gian */
-    var r1 = Math.round(base * 1.005 / 0.5) * 0.5;
-    var s1 = Math.round(base * 0.994 / 0.5) * 0.5;
-    var s2 = Math.round(base * 0.984 / 0.5) * 0.5;
-    html += '<div style="padding:14px 16px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--yellow)">'
-      + '⚠ Chưa có data kỹ thuật. Workflow sẽ tính toán từ 120 phiên OHLCV sau 15:30.</div>';
-    html += '<div class="levels">'
+  /* Neu chua co technical → hien placeholder */
+  if (!isLive) {
+    var base = d.value || 1289;
+    var r1 = Math.round(base*1.005/0.5)*0.5;
+    var s1 = Math.round(base*0.994/0.5)*0.5;
+    html += '<div style="padding:14px 16px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--text2)">'
+      + '⚠ Chưa có data kỹ thuật. Workflow sẽ tính toán từ 120 phiên OHLCV sau 15:30 hôm nay.<br>'
+      + '<span style="color:var(--text3)">Hiện đang hiển thị mức ước tính ±0.5% từ giá hiện tại.</span>'
+      + '</div>'
+      + '<div class="levels">'
       + '<div class="lvl r"><span class="lvl-lbl">Kháng cự (ước tính)</span><span class="lvl-val">' + fmt(r1) + '</span></div>'
       + '<div class="lvl cur"><span class="lvl-lbl">▶ Hiện tại</span><span class="lvl-val">' + fmt(d.value) + '</span></div>'
       + '<div class="lvl s"><span class="lvl-lbl">Hỗ trợ (ước tính)</span><span class="lvl-val">' + fmt(s1) + '</span></div>'
@@ -1125,174 +1160,239 @@ function renderIndex(key, title, icon, sub) {
     return html;
   }
 
-  /* LIVE mode — 3 cot chinh xac */
-  var trend   = tc.trend || {};
-  var bb      = tc.bb    || {};
-  var resist  = tc.resistance || [];
-  var support = tc.support    || [];
-  var rsi     = tc.rsi14;
-  var rsiSig  = tc.rsi_signal || 'TRUNG_TINH';
-  var volDiv  = tc.vol_div    || 'NEUTRAL';
-  var bbPos   = tc.bb_pos;
-  var atr     = tc.atr14;
-  var toR     = tc.to_resist;
-  var toS     = tc.to_support;
+  /* === Cac bien phu tro === */
+  var trend    = tc.trend  || {};
+  var bb       = tc.bb     || {};
+  var resist   = tc.resistance || [];
+  var support  = tc.support    || [];
+  var rsi      = tc.rsi14;
+  var volDiv   = tc.vol_div || 'NEUTRAL';
+  var bbPos    = tc.bb_pos;
+  var atr      = tc.atr14;
+  var toR      = tc.to_resist;
+  var toS      = tc.to_support;
+  var currClose= d.value;
 
-  /* Badge helpers */
   function trendBadge(t) {
-    if (t === 'TANG')  return '<span style="color:var(--green);font-size:10px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px">▲ TĂNG</span>';
-    if (t === 'GIAM')  return '<span style="color:var(--red);font-size:10px;font-weight:700;background:var(--red2);padding:1px 6px;border-radius:10px">▼ GIẢM</span>';
-    return '<span style="color:var(--yellow);font-size:10px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px">→ NGANG</span>';
+    if (t==='TANG')  return '<span class="badge-up">▲ TĂNG</span>';
+    if (t==='GIAM')  return '<span class="badge-dn">▼ GIẢM</span>';
+    return '<span class="badge-nt">→ NGANG</span>';
   }
-  function rsiBadge(r) {
-    if (!r) return '--';
-    var col = r > 70 ? 'var(--red)' : r < 30 ? 'var(--green)' : 'var(--accent2)';
-    var lbl = r > 70 ? 'Quá mua' : r < 30 ? 'Quá bán' : 'Trung tính';
-    return '<span style="font-family:var(--mono);font-weight:700;color:' + col + '">' + r + '</span>'
-      + ' <span style="font-size:10px;color:var(--text2)">(' + lbl + ')</span>';
+  function numColor(val, ref) {
+    return val && ref ? (val > ref ? 'var(--green)' : 'var(--red)') : 'var(--text2)';
   }
 
-  /* COT 1 — Xu huong gia + KL */
-  html += '<div class="cg3" style="gap:12px;margin-bottom:16px">';
+  /* === Bull/Bear score === */
+  var bull = 0;
+  if (trend.short==='TANG') bull += 2;
+  if (trend.mid  ==='TANG') bull += 2;
+  if (trend.long ==='TANG') bull += 1;
+  if (rsi && rsi > 50 && rsi < 70) bull += 1;
+  if (volDiv==='POSITIVE') bull += 1;
+  if (rsi && rsi > 70) bull -= 2;
+  var signal    = bull >= 4 ? 'TANG' : bull <= 1 ? 'GIAM' : 'THAN_TRONG';
+  var sigEmoji  = signal==='TANG' ? '🟢' : signal==='GIAM' ? '🔴' : '🟡';
+  var sigText   = signal==='TANG' ? 'TÍCH CỰC' : signal==='GIAM' ? 'TIÊU CỰC' : 'THẬN TRỌNG';
+  var sigCls    = signal==='TANG' ? 'pos' : signal==='GIAM' ? 'neg' : 'neu';
+  var targetUp  = resist.length > 0 ? resist[0] : Math.round(currClose*1.015/0.5)*0.5;
+  var targetUp2 = resist.length > 1 ? resist[1] : Math.round(currClose*1.030/0.5)*0.5;
+  var targetDn  = support.length > 0 ? support[0] : Math.round(currClose*0.985/0.5)*0.5;
+  var targetDn2 = support.length > 1 ? support[1] : Math.round(currClose*0.970/0.5)*0.5;
 
-  html += '<div class="block" style="margin:0">'
-    + '<div class="btitle">📊 Xu Hướng Giá & KL</div>'
-    + '<div style="padding:10px 12px">'
-    /* Xu huong */
-    + '<div style="margin-bottom:10px">'
-    + '<div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:600">XU HƯỚNG</div>'
-    + '<div style="display:flex;flex-direction:column;gap:5px">'
-    + '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px">Ngắn hạn (MA10)</span>' + trendBadge(trend.short) + '</div>'
-    + '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px">Trung hạn (MA50)</span>' + trendBadge(trend.mid) + '</div>'
-    + '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px">Dài hạn (MA100)</span>' + trendBadge(trend.long) + '</div>'
-    + '</div></div>'
-    /* MAs */
-    + '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:2px">'
-    + '<div style="font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600">ĐƯỜNG TRUNG BÌNH</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:11px">'
-    + '<span style="color:var(--text2)">MA5</span><span style="font-family:var(--mono);font-weight:600;color:' + (tc.ma5 && d.value > tc.ma5 ? 'var(--green)':'var(--red)') + '">' + (tc.ma5 ? fmt(tc.ma5) : '--') + '</span>'
-    + '<span style="color:var(--text2)">MA20</span><span style="font-family:var(--mono);font-weight:600;color:' + (tc.ma20 && d.value > tc.ma20 ? 'var(--green)':'var(--red)') + '">' + (tc.ma20 ? fmt(tc.ma20) : '--') + '</span>'
-    + '<span style="color:var(--text2)">MA50</span><span style="font-family:var(--mono);font-weight:600;color:' + (tc.ma50 && d.value > tc.ma50 ? 'var(--green)':'var(--red)') + '">' + (tc.ma50 ? fmt(tc.ma50) : '--') + '</span>'
-    + '<span style="color:var(--text2)">MA100</span><span style="font-family:var(--mono);font-weight:600;color:' + (tc.ma100 && d.value > tc.ma100 ? 'var(--green)':'var(--red)') + '">' + (tc.ma100 ? fmt(tc.ma100) : '--') + '</span>'
-    + '</div></div>'
-    /* RSI + KL */
-    + '<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:6px">'
-    + '<div style="font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600">MOMENTUM & KHỐI LƯỢNG</div>'
-    + '<div style="font-size:12px;margin-bottom:4px">RSI(14): ' + rsiBadge(rsi) + '</div>'
-    + '<div style="font-size:12px;margin-bottom:4px">BB vị trí: <strong>' + (bbPos !== null && bbPos !== undefined ? bbPos + '%' : '--') + '</strong> <span style="font-size:10px;color:var(--text2)">(trong dải BB)</span></div>'
-    + '<div style="font-size:12px;margin-bottom:4px">KL hôm nay: <strong>' + (tc.vol_today ? fmt(tc.vol_today) + 'M' : '--') + '</strong> vs VMA20: <strong>' + (tc.vma20 ? fmt(tc.vma20) + 'M' : '--') + '</strong></div>'
-    + '<div style="font-size:12px">Phân kỳ giá-KL: <strong style="color:' + (volDiv==='NEGATIVE'?'var(--red)':volDiv==='POSITIVE'?'var(--green)':'var(--text2)') + '">'
-    + (volDiv==='NEGATIVE'?'⚠ Âm (giá tăng, KL giảm)':volDiv==='POSITIVE'?'✅ Dương':'-') + '</strong></div>'
-    + '</div>'
-    + '</div></div>';
-
-  /* COT 2 — Ho tro / Khang cu */
-  html += '<div class="block" style="margin:0">'
-    + '<div class="btitle">🎯 Hỗ Trợ & Kháng Cự</div>'
-    + '<div class="levels" style="margin-bottom:10px">';
-
-  /* Khang cu */
-  var resistLabels = ['Kháng cự 1','Kháng cự 2','Kháng cự 3'];
-  var resistReasons = [
-    bb.upper ? 'BB Upper · ' + fmt(bb.upper) : 'Đỉnh cũ',
-    tc.ma20  ? 'Đỉnh cũ' : 'Vùng cung',
-    'Vùng cung lịch sử',
-  ];
-  resist.slice(0,2).forEach(function(r, i) {
-    html += '<div class="lvl r"><span class="lvl-lbl">' + resistLabels[i]
-      + (toR && i===0 ? ' <span style="font-size:9px;font-weight:700;color:var(--red)">+' + toR + '%</span>' : '')
-      + '</span><span class="lvl-val">' + fmt(r) + '</span>'
-      + '<span style="font-size:9px;color:var(--text2);margin-left:auto">' + (i===0 && bb.upper ? 'BB/Đỉnh' : 'Đỉnh cũ') + '</span></div>';
-  });
-  if (resist.length === 0) {
-    html += '<div class="lvl r"><span class="lvl-lbl">Kháng cự</span><span class="lvl-val">' + fmt(Math.round(base*1.005/0.5)*0.5) + '</span><span style="font-size:9px;color:var(--yellow);margin-left:auto">ước tính</span></div>';
+  /* === SECTION: XU HUONG === */
+  if (sub === prefix + '-trend') {
+    html += '<div class="block">'
+      + '<div class="btitle">📊 Xu Hướng Giá</div>'
+      + '<div style="padding:12px 14px">'
+      /* 3 khung thoi gian */
+      + '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--bg3);border-radius:8px">'
+      + '<div><div style="font-size:12px;font-weight:600">Ngắn hạn</div><div style="font-size:11px;color:var(--text2)">MA10 = ' + fmt(tc.ma10) + ' · Giá ' + (currClose > tc.ma10 ? 'trên' : 'dưới') + ' MA10</div></div>'
+      + trendBadge(trend.short) + '</div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--bg3);border-radius:8px">'
+      + '<div><div style="font-size:12px;font-weight:600">Trung hạn</div><div style="font-size:11px;color:var(--text2)">MA50 = ' + fmt(tc.ma50) + ' · Giá ' + (currClose > tc.ma50 ? 'trên' : 'dưới') + ' MA50</div></div>'
+      + trendBadge(trend.mid) + '</div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--bg3);border-radius:8px">'
+      + '<div><div style="font-size:12px;font-weight:600">Dài hạn</div><div style="font-size:11px;color:var(--text2)">MA100 = ' + fmt(tc.ma100) + ' · Giá ' + (currClose > (tc.ma100||0) ? 'trên' : 'dưới') + ' MA100</div></div>'
+      + trendBadge(trend.long) + '</div>'
+      + '</div>'
+      /* Bang MA */
+      + '<div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:16px">'
+      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">ĐƯỜNG TRUNG BÌNH</div>'
+      + '<div style="display:grid;grid-template-columns:60px 1fr 60px 1fr;gap:6px 12px;font-size:12px">'
+      + '<span style="color:var(--text2)">MA5</span><span style="font-family:var(--mono);font-weight:600;color:' + numColor(tc.ma5,currClose>tc.ma5?tc.ma5:null) + '">' + (tc.ma5?fmt(tc.ma5):'--') + '</span>'
+      + '<span style="color:var(--text2)">MA20</span><span style="font-family:var(--mono);font-weight:600;color:' + (currClose>tc.ma20?'var(--green)':'var(--red)') + '">' + (tc.ma20?fmt(tc.ma20):'--') + '</span>'
+      + '<span style="color:var(--text2)">MA50</span><span style="font-family:var(--mono);font-weight:600;color:' + (currClose>tc.ma50?'var(--green)':'var(--red)') + '">' + (tc.ma50?fmt(tc.ma50):'--') + '</span>'
+      + '<span style="color:var(--text2)">MA100</span><span style="font-family:var(--mono);font-weight:600;color:' + (tc.ma100&&currClose>tc.ma100?'var(--green)':'var(--red)') + '">' + (tc.ma100?fmt(tc.ma100):'--') + '</span>'
+      + '</div></div>'
+      /* RSI + BB */
+      + '<div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:16px">'
+      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">MOMENTUM</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px">'
+      + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">RSI(14)</span>'
+      + '<span><strong style="font-family:var(--mono);color:' + (rsi>70?'var(--red)':rsi<30?'var(--green)':'var(--accent2)') + '">' + (rsi||'--') + '</strong>'
+      + ' <span style="font-size:10px;color:var(--text2)">— ' + (rsi>70?'Vùng quá mua, cẩn thận điều chỉnh':rsi<30?'Vùng quá bán, có thể phục hồi':'Trung tính, chưa cực đoan') + '</span></span></div>'
+      + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">BB(20,2)</span>'
+      + '<span style="font-family:var(--mono);font-size:11px">' + (bb.lower?fmt(bb.lower):'--') + ' – ' + (bb.upper?fmt(bb.upper):'--') + '</span></div>'
+      + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Vị trí trong BB</span>'
+      + '<span><strong>' + (bbPos!==null&&bbPos!==undefined?bbPos+'%':'--') + '</strong>'
+      + ' <span style="font-size:10px;color:var(--text2)">— ' + (bbPos>85?'Gần band trên, áp lực':bbPos<15?'Gần band dưới, hỗ trợ':'Trong biên độ bình thường') + '</span></span></div>'
+      + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">BB Width</span>'
+      + '<span>' + (bb.width?'<strong>' + bb.width + '%</strong> <span style="font-size:10px;color:var(--text2)">— ' + (bb.width<5?'Biên độ hẹp, sắp bùng nổ':bb.width>30?'Biên độ rộng, volatility cao':'Bình thường') + '</span>':'--') + '</span></div>'
+      + '</div></div>'
+      /* Khoi luong */
+      + '<div style="border-top:1px solid var(--border);padding-top:12px">'
+      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">KHỐI LƯỢNG</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px">'
+      + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">KL hôm nay</span>'
+      + '<span><strong style="font-family:var(--mono)">' + (tc.vol_today?fmt(tc.vol_today)+'M':'--') + '</strong>'
+      + (tc.vma20 ? ' <span style="font-size:10px;color:var(--text2)">(VMA20: ' + fmt(tc.vma20) + 'M)</span>' : '') + '</span></div>'
+      + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">So VMA20</span>'
+      + '<span>' + (tc.vol_today&&tc.vma20 ? '<strong style="color:' + (tc.vol_today>tc.vma20?'var(--green)':'var(--red)') + '">' + (tc.vol_today>tc.vma20?'Trên TB — dòng tiền tham gia tốt':'Dưới TB — dòng tiền yếu hơn bình thường') + '</strong>' : '--') + '</span></div>'
+      + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Phân kỳ giá-KL</span>'
+      + '<span><strong style="color:' + (volDiv==='NEGATIVE'?'var(--red)':volDiv==='POSITIVE'?'var(--green)':'var(--text2)') + '">'
+      + (volDiv==='NEGATIVE'?'⚠ Âm — giá tăng nhưng KL giảm':volDiv==='POSITIVE'?'✅ Dương — giá và KL cùng tăng':'Trung tính') + '</strong></span></div>'
+      + '</div></div>'
+      + '</div></div>';
+    return html;
   }
 
-  /* Gia hien tai */
-  html += '<div class="lvl cur"><span class="lvl-lbl">▶ Hiện tại</span><span class="lvl-val" style="color:var(--' + c + ')">' + fmt(d.value) + '</span>'
-    + '<span style="font-size:9px;color:var(--accent2);margin-left:auto">ATR=' + (atr ? fmt(atr) : '--') + '</span></div>';
+  /* === SECTION: HO TRO KHANG CU === */
+  if (sub === prefix + '-sr') {
+    html += '<div class="block">'
+      + '<div class="btitle">🎯 Hỗ Trợ & Kháng Cự</div>'
+      + '<div style="padding:12px 14px">'
+      /* Levels */
+      + '<div class="levels" style="margin-bottom:16px">';
 
-  /* Ho tro */
-  var supportLabels = ['Hỗ trợ 1','Hỗ trợ 2'];
-  support.slice(0,2).forEach(function(s, i) {
-    var reason = i===0
-      ? (tc.ma20 && Math.abs(s - tc.ma20) < 5 ? 'MA20' : tc.ma50 && Math.abs(s - tc.ma50) < 5 ? 'MA50' : 'BB/Đáy')
-      : (tc.ma50 && Math.abs(s - tc.ma50) < 10 ? 'MA50' : 'Đáy cũ');
-    html += '<div class="lvl s"><span class="lvl-lbl">' + supportLabels[i]
-      + (toS && i===0 ? ' <span style="font-size:9px;font-weight:700;color:var(--green)">-' + toS + '%</span>' : '')
-      + '</span><span class="lvl-val">' + fmt(s) + '</span>'
-      + '<span style="font-size:9px;color:var(--text2);margin-left:auto">' + reason + '</span></div>';
-  });
-  if (support.length === 0) {
-    html += '<div class="lvl s"><span class="lvl-lbl">Hỗ trợ</span><span class="lvl-val">' + fmt(Math.round(base*0.994/0.5)*0.5) + '</span><span style="font-size:9px;color:var(--yellow);margin-left:auto">ước tính</span></div>';
+    /* Khang cu */
+    var rLabels  = ['Kháng cự 1','Kháng cự 2'];
+    var rReasons = [
+      bb.upper && Math.abs((resist[0]||0)-bb.upper)<5 ? 'BB Upper' : 'Đỉnh cũ / Vùng cung',
+      'Vùng cung lịch sử',
+    ];
+    if (resist.length === 0) {
+      html += '<div class="lvl r"><span class="lvl-lbl">Kháng cự 1 <span style="font-size:9px;color:var(--yellow)">(ước tính)</span></span>'
+        + '<span class="lvl-val">' + fmt(Math.round(currClose*1.008/0.5)*0.5) + '</span></div>';
+    } else {
+      resist.slice(0,2).forEach(function(r,i) {
+        html += '<div class="lvl r"><span class="lvl-lbl">' + rLabels[i]
+          + (i===0&&toR?' <span style="font-size:9px;font-weight:700;color:var(--red)">còn +'+toR+'%</span>':'')
+          + '</span><span class="lvl-val">' + fmt(r) + '</span>'
+          + '<span style="font-size:9px;color:var(--text2);margin-left:auto">' + rReasons[i] + '</span></div>';
+      });
+    }
+
+    /* Hien tai */
+    html += '<div class="lvl cur"><span class="lvl-lbl">▶ Hiện tại</span>'
+      + '<span class="lvl-val" style="color:var(--' + c + ')">' + fmt(currClose) + '</span>'
+      + '<span style="font-size:9px;color:var(--accent2);margin-left:auto">ATR(14)=' + (atr?fmt(atr):'--') + '</span></div>';
+
+    /* Ho tro */
+    var sLabels  = ['Hỗ trợ 1','Hỗ trợ 2'];
+    var sReasons = [
+      tc.ma20&&Math.abs((support[0]||0)-tc.ma20)<8?'MA20':tc.ma50&&Math.abs((support[0]||0)-tc.ma50)<8?'MA50':'BB Lower / Đáy gần',
+      tc.ma50&&Math.abs((support[1]||0)-tc.ma50)<10?'MA50':'Đáy cũ / Vùng cầu',
+    ];
+    if (support.length === 0) {
+      html += '<div class="lvl s"><span class="lvl-lbl">Hỗ trợ 1 <span style="font-size:9px;color:var(--yellow)">(ước tính)</span></span>'
+        + '<span class="lvl-val">' + fmt(Math.round(currClose*0.992/0.5)*0.5) + '</span></div>';
+    } else {
+      support.slice(0,2).forEach(function(s,i) {
+        html += '<div class="lvl s"><span class="lvl-lbl">' + sLabels[i]
+          + (i===0&&toS?' <span style="font-size:9px;font-weight:700;color:var(--green)">còn -'+toS+'%</span>':'')
+          + '</span><span class="lvl-val">' + fmt(s) + '</span>'
+          + '<span style="font-size:9px;color:var(--text2);margin-left:auto">' + sReasons[i] + '</span></div>';
+      });
+    }
+    html += '</div>';
+
+    /* BB band thong tin */
+    if (bb.upper) {
+      html += '<div style="background:var(--bg3);border-radius:8px;padding:12px 14px;margin-bottom:14px">'
+        + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">BOLLINGER BANDS (20,2)</div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px">'
+        + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Band trên</span><span style="font-family:var(--mono);color:var(--red)">' + fmt(bb.upper) + '</span></div>'
+        + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Đường giữa (MA20)</span><span style="font-family:var(--mono)">' + fmt(bb.mid) + '</span></div>'
+        + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Band dưới</span><span style="font-family:var(--mono);color:var(--green)">' + fmt(bb.lower) + '</span></div>'
+        + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Độ rộng (Width)</span><span><strong>' + bb.width + '%</strong> — ' + (bb.width<8?'Hẹp → sắp breakout':bb.width>25?'Rộng → high volatility':'Bình thường') + '</span></div>'
+        + '</div></div>';
+    }
+
+    /* ATR giải thich */
+    if (atr) {
+      html += '<div style="background:var(--bg3);border-radius:8px;padding:12px 14px">'
+        + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">ATR(14) — ĐỘ BIẾN ĐỘNG TRUNG BÌNH</div>'
+        + '<div style="font-size:12px;line-height:1.7">'
+        + 'ATR = <strong style="font-family:var(--mono)">' + fmt(atr) + '</strong> điểm/phiên'
+        + ' (' + (atr/currClose*100).toFixed(2) + '% so với giá)<br>'
+        + '<span style="color:var(--text2)">Biên độ dao động kỳ vọng 1 phiên: '
+        + fmt(Math.round((currClose-atr/2)/0.5)*0.5) + ' – ' + fmt(Math.round((currClose+atr/2)/0.5)*0.5) + '</span>'
+        + '</div></div>';
+    }
+    html += '</div></div>';
+    return html;
   }
 
-  html += '</div>'
-    /* BB info */
-    + (bb.upper ? '<div style="font-size:11px;color:var(--text2);padding:0 2px;line-height:1.7">'
-      + 'BB(20,2): <span style="font-family:var(--mono)">' + fmt(bb.lower) + ' – ' + fmt(bb.upper) + '</span>'
-      + ' · Width: <strong>' + bb.width + '%</strong></div>' : '')
-    + '</div>';
+  /* === SECTION: KHUYEN NGHI & KICH BAN === */
+  if (sub === prefix + '-rec') {
+    html += '<div class="block">'
+      + '<div class="btitle">💼 Khuyến Nghị & Kịch Bản</div>'
+      + '<div style="padding:12px 14px">'
 
-  /* COT 3 — Khuyen nghi + Kich ban */
-  /* Xac dinh signal tong hop */
-  var bullScore = 0;
-  if (trend.short === 'TANG') bullScore += 2;
-  if (trend.mid   === 'TANG') bullScore += 2;
-  if (trend.long  === 'TANG') bullScore += 1;
-  if (rsi && rsi > 50 && rsi < 70) bullScore += 1;
-  if (volDiv === 'POSITIVE') bullScore += 1;
-  if (rsi && rsi > 70) bullScore -= 2;  // qua mua = tru diem
+      /* Signal box */
+      + '<div class="verdict ' + sigCls + '" style="margin-bottom:16px">'
+      + '<div class="vi">' + sigEmoji + '</div>'
+      + '<div><div class="vl">Tín hiệu tổng hợp</div>'
+      + '<div class="vt">' + sigText + '</div>'
+      + '<div class="vs">Điểm: ' + bull + '/7 · RSI=' + (rsi||'--') + ' · ' + (volDiv==='NEGATIVE'?'KL phân kỳ âm':volDiv==='POSITIVE'?'KL xác nhận':'KL trung tính') + '</div>'
+      + '</div></div>'
 
-  var signal = bullScore >= 4 ? 'TANG' : bullScore <= 1 ? 'GIAM' : 'THAN_TRONG';
-  var signalEmoji = signal==='TANG' ? '🟢' : signal==='GIAM' ? '🔴' : '🟡';
-  var signalText  = signal==='TANG' ? 'TÍCH CỰC' : signal==='GIAM' ? 'TIÊU CỰC' : 'THẬN TRỌNG';
-  var signalCls   = signal==='TANG' ? 'pos' : signal==='GIAM' ? 'neg' : 'neu';
+      /* Luan diem */
+      + '<div style="border-bottom:1px solid var(--border);padding-bottom:14px;margin-bottom:14px">'
+      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">LUẬN ĐIỂM</div>'
+      + '<div style="font-size:12px;line-height:1.8;color:var(--text)">'
+      + '• Xu hướng giá: <strong>' + (trend.short===trend.mid&&trend.mid===trend.long?'Đồng thuận ' + (trend.short==='TANG'?'tăng 3 khung':'giảm 3 khung'):'Phân kỳ giữa các khung') + '</strong><br>'
+      + '• Momentum RSI: <strong>' + (rsi>70?'Quá mua ('+rsi+') — rủi ro điều chỉnh ngắn hạn':rsi<30?'Quá bán ('+rsi+') — tiềm năng phục hồi':'Trung tính ('+rsi+') — chưa cực đoan') + '</strong><br>'
+      + '• Khối lượng: <strong>' + (volDiv==='NEGATIVE'?'Phân kỳ âm — giá tăng nhưng KL giảm → độ tin cậy thấp':volDiv==='POSITIVE'?'Dương — KL xác nhận xu hướng':'Trung tính — chưa có tín hiệu rõ') + '</strong><br>'
+      + '• Vị trí BB: <strong>' + (bbPos>85?'Gần band trên ('+bbPos+'%) — đang test kháng cự':bbPos<15?'Gần band dưới ('+bbPos+'%) — đang test hỗ trợ':'Trong biên độ ('+bbPos+'%) — bình thường') + '</strong>'
+      + '</div></div>'
 
-  /* Muc tieu gia */
-  var target_up   = resist.length > 0 ? resist[0] : Math.round(base * 1.015 / 0.5) * 0.5;
-  var target_down = support.length > 0 ? support[0] : Math.round(base * 0.985 / 0.5) * 0.5;
-  var target_up2  = resist.length > 1 ? resist[1] : Math.round(base * 1.03 / 0.5) * 0.5;
+      /* Hanh dong */
+      + '<div style="border-bottom:1px solid var(--border);padding-bottom:14px;margin-bottom:14px">'
+      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">HÀNH ĐỘNG CỤ THỂ</div>'
+      + '<div style="background:var(--bg3);border-radius:8px;padding:12px 14px;font-size:12px;line-height:1.9">'
+      + '📌 <strong>Đang nắm CP:</strong> '
+      + (signal==='TANG'?'Giữ vị thế · trailing stop tại <strong>' + fmt(targetDn) + '</strong> (hỗ trợ gần nhất)':
+         signal==='GIAM'?'Cân nhắc giảm tỷ trọng · stop loss nếu phá <strong>' + fmt(targetDn) + '</strong>':
+         'Giữ nguyên · không tăng thêm · stop tại <strong>' + fmt(targetDn) + '</strong>') + '<br>'
+      + '⏳ <strong>Chờ vào lệnh:</strong> '
+      + (signal==='TANG'?'Mua pullback về vùng <strong>' + fmt(targetDn) + '–' + fmt(support.length>1?support[1]:targetDn) + '</strong> hoặc breakout <strong>' + fmt(targetUp) + '</strong> kèm KL':
+         signal==='GIAM'?'Chưa vào — chờ tín hiệu đảo chiều rõ ràng hơn':
+         'Chờ breakout <strong>' + fmt(targetUp) + '</strong> (KL tăng) hoặc pullback về <strong>' + fmt(targetDn) + '</strong>') + '<br>'
+      + '🎯 <strong>Mục tiêu:</strong> Breakout → <strong>' + fmt(targetUp) + '</strong> → <strong>' + fmt(targetUp2) + '</strong>'
+      + '</div></div>'
 
-  html += '<div class="block" style="margin:0">'
-    + '<div class="btitle">💼 Khuyến Nghị & Kịch Bản</div>'
-    + '<div style="padding:10px 12px">'
+      /* 3 kich ban */
+      + '<div>'
+      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">3 KỊCH BẢN PHIÊN TỚI</div>'
+      + '<div style="padding:11px 14px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;margin-bottom:8px;font-size:12px;line-height:1.7">'
+      + '<strong class="pos">🟢 Tích cực</strong> — Vượt <strong>' + fmt(targetUp) + '</strong> kèm KL tốt<br>'
+      + '<span style="color:var(--text2)">→ Mục tiêu tiếp theo: <strong>' + fmt(targetUp2) + '</strong> · Điều kiện thất bại: không giữ được ' + fmt(targetUp) + '</span></div>'
+      + '<div style="padding:11px 14px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:8px;font-size:12px;line-height:1.7">'
+      + '<strong class="flat">🟡 Cơ sở</strong> — Sideway trong biên độ <strong>' + fmt(targetDn) + '–' + fmt(targetUp) + '</strong><br>'
+      + '<span style="color:var(--text2)">→ Chờ breakout hoặc breakdown để xác định hướng tiếp theo</span></div>'
+      + '<div style="padding:11px 14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:12px;line-height:1.7">'
+      + '<strong class="neg">🔴 Tiêu cực</strong> — Phá <strong>' + fmt(targetDn) + '</strong> kèm KL tăng<br>'
+      + '<span style="color:var(--text2)">→ Mục tiêu tiếp theo: <strong>' + fmt(targetDn2) + '</strong> · Điều kiện đảo chiều: giữ lại ' + fmt(targetDn) + ' trong 1–2 phiên</span></div>'
+      + '</div>'
+      + '</div></div>';
+    return html;
+  }
 
-    /* Signal tong hop */
-    + '<div class="verdict ' + signalCls + '" style="margin-bottom:12px;padding:10px 14px">'
-    + '<div class="vi" style="font-size:18px">' + signalEmoji + '</div>'
-    + '<div><div class="vl">Tín hiệu tổng hợp</div>'
-    + '<div class="vt" style="font-size:14px">' + signalText + '</div>'
-    + '<div class="vs">Score: ' + bullScore + '/7</div></div></div>'
-
-    /* Khuyen nghi hanh dong */
-    + '<div style="margin-bottom:12px">'
-    + '<div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:600">HÀNH ĐỘNG</div>'
-    + '<div style="background:var(--bg3);border-radius:8px;padding:10px;font-size:12px;line-height:1.7">'
-    + '📌 <strong>Đang có vị thế:</strong> '
-    + (signal==='TANG' ? 'Giữ · trailing stop tại ' + fmt(target_down)
-     : signal==='GIAM' ? 'Cân nhắc giảm tỷ trọng · stop dưới ' + fmt(target_down)
-     : 'Giữ nguyên · không tăng tỷ trọng')
-    + '<br>⏳ <strong>Chờ vào lệnh:</strong> '
-    + (signal==='TANG' ? 'Mua pullback về ' + fmt(target_down) + ' hoặc breakout ' + fmt(target_up)
-     : signal==='GIAM' ? 'Chờ — chưa có tín hiệu đảo chiều rõ'
-     : 'Chờ xác nhận · không vào giữa biên độ')
-    + '</div></div>'
-
-    /* 3 kich ban */
-    + '<div><div style="font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:600">3 KỊCH BẢN</div>'
-    + '<div style="padding:9px 12px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:7px;margin-bottom:6px;font-size:12px">'
-    + '<strong class="pos">🟢 Tích cực</strong> — Vượt ' + fmt(target_up) + ' (KL tăng) → MT: ' + fmt(target_up2) + '</div>'
-    + '<div style="padding:9px 12px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:7px;margin-bottom:6px;font-size:12px">'
-    + '<strong class="flat">🟡 Cơ sở</strong> — Sideway ' + fmt(target_down) + '–' + fmt(target_up) + ' chờ tín hiệu rõ hơn</div>'
-    + '<div style="padding:9px 12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:7px;font-size:12px">'
-    + '<strong class="neg">🔴 Tiêu cực</strong> — Phá ' + fmt(target_down) + ' → về ' + fmt(support.length > 1 ? support[1] : Math.round(base*0.97/0.5)*0.5) + '</div>'
-    + '</div>'
-    + '</div></div>';
-
-  html += '</div>'; /* dong cg3 */
   return html;
 }
+
 
 function renderWatchlist(sub) {
   var sigMap = {buy:'🟢',watch:'🟡',avoid:'🔴',neutral:'⚪'};
@@ -1455,9 +1555,39 @@ function renderTrackRecord(sub) {
 /* ── Section config & router ── */
 var SCFG = {
   tonghop:      {title:'BÁO CÁO TỔNG HỢP',items:[{id:'th-main',i:'📊',l:'TỔNG QUAN'}]},
-  vnindex:      {title:'VNINDEX',items:[{id:'vni-main',i:'📈',l:'PHÂN TÍCH'}]},
-  vn30:         {title:'VN30',items:[{id:'vn30-main',i:'📈',l:'PHÂN TÍCH'}]},
-  vnmidcap:     {title:'VNMIDCAP',items:[{id:'vnm-main',i:'📈',l:'PHÂN TÍCH'}]},
+  vnindex:      {title:'VNINDEX',items:[
+    {id:'vni-default',  i:'📊',l:'TỔNG QUAN'},
+    {id:'vni-xuhuong',  i:'📈',l:'XU HƯỚNG GIÁ & KL'},
+    {id:'vni-srkc',     i:'🎯',l:'HỖ TRỢ & KHÁNG CỰ'},
+    {id:'vni-khuyen',   i:'💼',l:'KHUYẾN NGHỊ & KỊCH BẢN'},
+  ]},
+  vn30:         {title:'VN30',items:[
+    {id:'vn30-default', i:'📊',l:'TỔNG QUAN'},
+    {id:'vn30-xuhuong', i:'📈',l:'XU HƯỚNG GIÁ & KL'},
+    {id:'vn30-srkc',    i:'🎯',l:'HỖ TRỢ & KHÁNG CỰ'},
+    {id:'vn30-khuyen',  i:'💼',l:'KHUYẾN NGHỊ & KỊCH BẢN'},
+  ]},
+  vnmidcap:     {title:'VNMIDCAP',items:[
+    {id:'vnmid-default',i:'📊',l:'TỔNG QUAN'},
+    {id:'vnmid-xuhuong',i:'📈',l:'XU HƯỚNG GIÁ & KL'},
+    {id:'vnmid-srkc',   i:'🎯',l:'HỖ TRỢ & KHÁNG CỰ'},
+    {id:'vnmid-khuyen', i:'💼',l:'KHUYẾN NGHỊ & KỊCH BẢN'},
+  ]},
+  vnindex: {title:'VNINDEX',items:[
+    {id:'vni-trend',i:'📊',l:'XU HƯỚNG GIÁ & KL'},
+    {id:'vni-sr',   i:'🎯',l:'HỖ TRỢ & KHÁNG CỰ'},
+    {id:'vni-rec',  i:'💼',l:'KHUYẾN NGHỊ & KỊCH BẢN'},
+  ]},
+  vn30: {title:'VN30',items:[
+    {id:'v30-trend',i:'📊',l:'XU HƯỚNG GIÁ & KL'},
+    {id:'v30-sr',   i:'🎯',l:'HỖ TRỢ & KHÁNG CỰ'},
+    {id:'v30-rec',  i:'💼',l:'KHUYẾN NGHỊ & KỊCH BẢN'},
+  ]},
+  vnmidcap: {title:'VNMIDCAP',items:[
+    {id:'vmc-trend',i:'📊',l:'XU HƯỚNG GIÁ & KL'},
+    {id:'vmc-sr',   i:'🎯',l:'HỖ TRỢ & KHÁNG CỰ'},
+    {id:'vmc-rec',  i:'💼',l:'KHUYẾN NGHỊ & KỊCH BẢN'},
+  ]},
   watchlist:    {title:'WATCHLIST',items:[{id:'wl-all',i:'📋',l:'TẤT CẢ'},{id:'wl-buy',i:'🟢',l:'MUA'},{id:'wl-watch',i:'🟡',l:'THEO DÕI'},{id:'wl-avoid',i:'🔴',l:'TRÁNH'}]},
   'brokers-take':{title:"BROKER'S TAKE",items:[{id:'bt-today',i:'📅',l:'HÔM NAY'}]},
   'track-record':{title:'TRACK RECORD',items:[{id:'tr-all',i:'📊',l:'TẤT CẢ'},{id:'tr-open',i:'🔄',l:'ĐANG MỞ'},{id:'tr-closed',i:'✅',l:'ĐÃ ĐÓNG'}]},
@@ -1468,9 +1598,9 @@ var currentSub = null;
 
 function renderContent(sec, sub) {
   if (sec === 'tonghop')      return renderTongHop();
-  if (sec === 'vnindex')      return renderIndex('vni',  'VNINDEX',  '📈', sub);
-  if (sec === 'vn30')         return renderIndex('vn30', 'VN30',     '🏦', sub);
-  if (sec === 'vnmidcap')     return renderIndex('vnmid','VNMIDCAP', '📋', sub);
+  if (sec === 'vnindex')      return renderIndex('vni',  'VNINDEX',  '📈', sub || 'vni-trend');
+  if (sec === 'vn30')         return renderIndex('vn30', 'VN30',     '🏦', sub || 'v30-trend');
+  if (sec === 'vnmidcap')     return renderIndex('vnmid','VNMIDCAP', '📋', sub || 'vmc-trend');
   if (sec === 'watchlist')    return renderWatchlist(sub);
   if (sec === 'brokers-take') return renderBrokersTake();
   if (sec === 'track-record') return renderTrackRecord(sub);
