@@ -1,10 +1,10 @@
 {
-  "updated": "24/04/2026 09:19",
+  "updated": "24/04/2026 09:56",
   "vni": {
-    "value": 1868.85,
-    "change": -4.38,
-    "pct": -0.23,
-    "vol": 18.54,
+    "value": 1874.45,
+    "change": 1.22,
+    "pct": 0.07,
+    "vol": 99.47,
     "val": 0,
     "date": "1",
     "up": 0,
@@ -14,10 +14,10 @@
     "floor": 0
   },
   "vn30": {
-    "value": 2023.87,
-    "change": -3.85,
-    "pct": -0.19,
-    "vol": 7.99,
+    "value": 2029.24,
+    "change": 1.52,
+    "pct": 0.07,
+    "vol": 39.01,
     "val": 0,
     "date": "1"
   },
@@ -25,7 +25,7 @@
     "value": 2210.0,
     "change": 0.0,
     "pct": 0.0,
-    "vol": 6.7,
+    "vol": 46.3,
     "val": 0,
     "date": "1"
   },
@@ -34,5 +34,44 @@
     "buy": null,
     "sell": null
   },
-  "industry": []
+  "industry": [],
+  "technical": {
+    "close": 1873.97,
+    "ma5": 1854.44,
+    "ma10": 1824.45,
+    "ma20": 1762.95,
+    "ma50": 1754.3,
+    "ma100": 1768.58,
+    "ema20": 1787.12,
+    "rsi14": 71.2,
+    "rsi_signal": "QUA_MUA",
+    "bb": {
+      "upper": 1903.89,
+      "mid": 1762.95,
+      "lower": 1622.01,
+      "width": 31.98
+    },
+    "bb_pos": 89.4,
+    "atr14": 33.15,
+    "vol_today": 99.55,
+    "vma10": 785.68,
+    "vma20": 838.89,
+    "vol_div": "NEGATIVE",
+    "trend": {
+      "short": "TANG",
+      "mid": "TANG",
+      "long": "TANG"
+    },
+    "support": [
+      1793.13,
+      1777.85,
+      1766.86
+    ],
+    "resistance": [
+      1899.44,
+      1903.89
+    ],
+    "to_resist": 1.36,
+    "to_support": 4.31
+  }
 }
