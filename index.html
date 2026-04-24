@@ -987,17 +987,12 @@ function renderNewsItems(items) {
 function renderTongHop() {
   var vni = LIVE.vni.value != null ? LIVE.vni : PH.vni;
   var fgn = LIVE.foreign.net != null ? LIVE.foreign : PH.foreign;
-  var isIndustryLive = LIVE.industry && LIVE.industry.length > 0;
-  var sectors = isIndustryLive ? LIVE.industry : PH.sectors;
-  var maxSec = Math.max.apply(null, sectors.map(function(s) { return Math.abs(s.pct); })) || 1;
-
   var isVniLive   = LIVE.vni.value != null;
   var verdictCls  = vni.pct >= 0 ? 'pos' : 'neg';
   var verdictIcon = vni.pct >= 0 ? '🟢' : '🔴';
   var verdictTxt  = vni.pct >= 0
     ? 'VNINDEX TĂNG — ' + sign(vni.pct) + fmt(vni.pct) + '% | VN30: ' + sign(LIVE.vn30.pct||PH.vn30.pct) + fmt(Math.abs(LIVE.vn30.pct||PH.vn30.pct)) + '%'
     : 'VNINDEX GIẢM — ' + fmt(vni.pct) + '% | VN30: ' + sign(LIVE.vn30.pct||PH.vn30.pct) + fmt(Math.abs(LIVE.vn30.pct||PH.vn30.pct)) + '%';
-
   var isLive = LIVE.vni.value != null;
   var statusBadge = isLive
     ? '<span style="color:var(--green);font-size:10px">● LIVE</span>'
@@ -1010,6 +1005,7 @@ function renderTongHop() {
     + ' &nbsp;' + statusBadge + '</div>'
     + '</div>'
 
+    /* VERDICT */
     + '<div class="verdict ' + verdictCls + '" style="margin-bottom:20px">'
     + '<div class="vi" style="font-size:28px">' + verdictIcon + '</div>'
     + '<div><div class="vl" style="font-size:11px">VERDICT HÔM NAY</div>'
@@ -1019,6 +1015,7 @@ function renderTongHop() {
     + ' &nbsp;·&nbsp; GT: <strong>' + (LIVE.vni.val != null ? fmtI(LIVE.vni.val) + ' tỷ' : '--') + '</strong>'
     + '</div></div></div>'
 
+    /* 3 CARDS CHI SO */
     + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px">'
     + (function(){
         var arr = [
@@ -1038,8 +1035,8 @@ function renderTongHop() {
       })()
     + '</div>'
 
+    /* CONVICTION CARD */
     + (function(){
-        /* === CONVICTION CARD — hien conviction hom nay neu co === */
         var cv = LIVE.conviction && LIVE.conviction.today;
         if (!cv) return '';
         var actionEmoji = {buy:'🟢', sell:'🔴', hold:'🟡', watch:'👀'};
@@ -1051,8 +1048,8 @@ function renderTongHop() {
           + '<div class="vi" style="font-size:24px">' + emoji + '</div>'
           + '<div style="flex:1">'
           + '<div class="vl">CONVICTION HÔM NAY — ' + cv.date + '</div>'
-          + '<div class="vt" style="font-size:16px">' + cv.ticker + ' — ' + label + ' &nbsp;'
-          + (cv.entryLow ? '<span style="font-family:var(--mono);font-size:14px">@ ' + cv.entryLow + (cv.entryHigh && cv.entryHigh !== cv.entryLow ? '–' + cv.entryHigh : '') + '</span>' : '')
+          + '<div class="vt" style="font-size:16px">' + cv.ticker + ' — ' + label
+          + (cv.entryLow ? ' &nbsp;<span style="font-family:var(--mono);font-size:14px">@ ' + cv.entryLow + (cv.entryHigh && cv.entryHigh !== cv.entryLow ? '–' + cv.entryHigh : '') + '</span>' : '')
           + '</div>'
           + '<div class="vs" style="font-size:12px;margin-top:4px">'
           + (cv.target   ? '🎯 Target: <strong>' + cv.target   + '</strong> &nbsp;' : '')
@@ -1060,10 +1057,11 @@ function renderTongHop() {
           + (cv.horizon  ? '⏱ ' + cv.horizon : '')
           + '</div>'
           + (cv.thesis ? '<div style="font-size:12px;color:var(--text2);margin-top:6px;font-style:italic">"' + cv.thesis + '"</div>' : '')
-          + (cv.tg_url ? '<div style="font-size:10px;margin-top:6px"><a href="' + cv.tg_url + '" target="_blank" rel="noopener" style="color:var(--accent2);text-decoration:none">🔗 Xác minh timestamp Telegram →</a></div>' : '')
+          + (cv.tg_url ? '<div style="font-size:11px;margin-top:6px"><a href="' + cv.tg_url + '" target="_blank" rel="noopener" style="color:var(--accent2);text-decoration:none">🔗 Xác minh timestamp Telegram →</a></div>' : '')
           + '</div></div>';
       })()
 
+    /* BROKER'S TAKE PREVIEW */
     + (function(){
         var bt = LIVE.brokerTake;
         var todayVN2 = new Date().toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});
@@ -1082,40 +1080,40 @@ function renderTongHop() {
           + '<div class="pvlbl">📝 Broker\'s Take — ' + (bt && bt.date ? bt.date : 'Hôm nay') + ' ' + badge + '</div>'
           + '<div class="pvtxt" style="' + (btStale2?'color:#f87171':'') + '">' + (btStale2 ? '⚠ Nhận định ngày cũ (' + (bt?bt.date:'--') + ') — cần cập nhật hôm nay' : pvTxt) + '</div>'
           + '</div><button class="pvbtn" onclick="setSection(\'brokers-take\')">Xem đầy đủ →</button></div>';
-      })();
-}
+      })()
+
+    /* THI TRUONG THE GIOI */
     + '<div class="block"><div class="btitle" style="font-size:15px">🌍 Thị Trường Thế Giới</div>'
-    + '<div class="world-grid">' + (function(){
-        return WORLD_SYMS.map(function(w) {
-          var d = LIVE.world[w.sym];
-          var c = d ? cls(d.pct) : 'flat';
-          var valStr = d ? fmtI(Math.round(d.value)) : '--';
-          var pctStr = d ? (sign(d.pct) + fmt(Math.abs(d.pct)) + '%') : '--';
-          return '<div class="wc">'
-            + '<div class="wc-name">' + w.label + '</div>'
-            + '<div class="wc-val ' + c + '">' + valStr + '</div>'
-            + '<div class="wc-pct ' + c + '">' + pctStr + '</div>'
-            + '</div>';
-        }).join('');
-      })() + '</div></div>'
+    + '<div class="world-grid">'
+    + WORLD_SYMS.map(function(w) {
+        var d = LIVE.world[w.sym];
+        var c = d ? cls(d.pct) : 'flat';
+        return '<div class="wc">'
+          + '<div class="wc-name">' + w.label + '</div>'
+          + '<div class="wc-val ' + c + '">' + (d ? fmtI(Math.round(d.value)) : '--') + '</div>'
+          + '<div class="wc-pct ' + c + '">' + (d ? (sign(d.pct) + fmt(Math.abs(d.pct)) + '%') : '--') + '</div>'
+          + '</div>';
+      }).join('')
+    + '</div></div>'
 
+    /* HANG HOA TY GIA */
     + '<div class="block"><div class="btitle" style="font-size:15px">📦 Hàng Hóa & Tỷ Giá</div>'
-    + '<div class="comm-grid">' + (function(){
-        var h = COMM_SYMS.map(function(c) {
-          var d = LIVE.comm[c.sym];
-          var cc = d ? cls(d.pct) : 'flat';
-          return '<div class="cc">'
-            + '<div class="cc-name">' + c.label + ' <span style="font-weight:400;font-size:9px;color:var(--text3)">' + c.unit + '</span></div>'
-            + '<div class="cc-val ' + cc + '">' + (d ? fmt(d.value, 2) : '--') + '</div>'
-            + '<div class="cc-pct ' + cc + '">' + (d ? (sign(d.pct) + fmt(d.pct) + '%') : '--') + '</div>'
-            + '</div>';
-        }).join('');
-        h += '<div class="cc"><div class="cc-name">USD/VND</div>'
-          + '<div class="cc-val flat">' + (LIVE.usdvnd ? fmtI(Math.round(LIVE.usdvnd)) : '--') + '</div>'
-          + '<div class="cc-pct" style="color:var(--text3)">Tỷ giá</div></div>';
-        return h;
-      })() + '</div></div>'
+    + '<div class="comm-grid">'
+    + COMM_SYMS.map(function(c) {
+        var d = LIVE.comm[c.sym];
+        var cc = d ? cls(d.pct) : 'flat';
+        return '<div class="cc">'
+          + '<div class="cc-name">' + c.label + ' <span style="font-weight:400;font-size:9px;color:var(--text3)">' + c.unit + '</span></div>'
+          + '<div class="cc-val ' + cc + '">' + (d ? fmt(d.value, 2) : '--') + '</div>'
+          + '<div class="cc-pct ' + cc + '">' + (d ? (sign(d.pct) + fmt(d.pct) + '%') : '--') + '</div>'
+          + '</div>';
+      }).join('')
+    + '<div class="cc"><div class="cc-name">USD/VND</div>'
+    + '<div class="cc-val flat">' + (LIVE.usdvnd ? fmtI(Math.round(LIVE.usdvnd)) : '--') + '</div>'
+    + '<div class="cc-pct" style="color:var(--text3)">Tỷ giá</div></div>'
+    + '</div></div>'
 
+    /* TIN TUC */
     + '<div class="block"><div class="btitle" style="font-size:15px">📰 Tin Tức</div>'
     + '<div class="news-tabs">'
     + '<div class="ntab ' + (newsTab === 'vn' ? 'active' : '') + '" onclick="switchNewsTab(\'vn\')">🇻🇳 Trong nước</div>'
@@ -1123,7 +1121,8 @@ function renderTongHop() {
     + '</div>'
     + '<div id="newsContent"><div class="news-list">'
     + renderNewsItems(newsTab === 'vn' ? LIVE.news.vn : LIVE.news.world)
-    + '</div></div></div>'
+    + '</div></div></div>';
+}
 
 
 function renderIndex(key, title, icon, sub) {
