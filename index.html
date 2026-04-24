@@ -1075,21 +1075,6 @@ function renderTongHop() {
       })()
     + '</div>'
 
-    + '<div class="block"><div class="btitle" style="font-size:15px">🌍 Thị Trường Thế Giới</div>'
-    + '<div class="world-grid">' + worldHTML + '</div></div>'
-
-    + '<div class="block"><div class="btitle" style="font-size:15px">📦 Hàng Hóa & Tỷ Giá</div>'
-    + '<div class="comm-grid">' + commHTML + '</div></div>'
-
-    + '<div class="block"><div class="btitle" style="font-size:15px">📰 Tin Tức</div>'
-    + '<div class="news-tabs">'
-    + '<div class="ntab ' + (newsTab === 'vn' ? 'active' : '') + '" onclick="switchNewsTab(\'vn\')">🇻🇳 Trong nước</div>'
-    + '<div class="ntab ' + (newsTab === 'world' ? 'active' : '') + '" onclick="switchNewsTab(\'world\')">🌐 Quốc tế</div>'
-    + '</div>'
-    + '<div id="newsContent"><div class="news-list">'
-    + renderNewsItems(newsTab === 'vn' ? LIVE.news.vn : LIVE.news.world)
-    + '</div></div></div>'
-
     + (function(){
         /* === CONVICTION CARD — hien conviction hom nay neu co === */
         var cv = LIVE.conviction && LIVE.conviction.today;
@@ -1136,6 +1121,21 @@ function renderTongHop() {
           + '</div><button class="pvbtn" onclick="setSection(\'brokers-take\')">Xem đầy đủ →</button></div>';
       })();
 }
+    + '<div class="block"><div class="btitle" style="font-size:15px">🌍 Thị Trường Thế Giới</div>'
+    + '<div class="world-grid">' + worldHTML + '</div></div>'
+
+    + '<div class="block"><div class="btitle" style="font-size:15px">📦 Hàng Hóa & Tỷ Giá</div>'
+    + '<div class="comm-grid">' + commHTML + '</div></div>'
+
+    + '<div class="block"><div class="btitle" style="font-size:15px">📰 Tin Tức</div>'
+    + '<div class="news-tabs">'
+    + '<div class="ntab ' + (newsTab === 'vn' ? 'active' : '') + '" onclick="switchNewsTab(\'vn\')">🇻🇳 Trong nước</div>'
+    + '<div class="ntab ' + (newsTab === 'world' ? 'active' : '') + '" onclick="switchNewsTab(\'world\')">🌐 Quốc tế</div>'
+    + '</div>'
+    + '<div id="newsContent"><div class="news-list">'
+    + renderNewsItems(newsTab === 'vn' ? LIVE.news.vn : LIVE.news.world)
+    + '</div></div></div>'
+
 
 function renderIndex(key, title, icon, sub) {
   var liveD = key==='vni' ? LIVE.vni : key==='vn30' ? LIVE.vn30 : LIVE.vnmid;
