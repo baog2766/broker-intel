@@ -262,24 +262,38 @@ def calc_technical(ohlcv):
 def fetch_vn_today():
     result = {}
     yesterday = (NOW - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    two_days  = (NOW - datetime.timedelta(days=4)).strftime("%Y-%m-%d")  # lay du lich su
     try:
         from vnstock import Vnstock
         stock = Vnstock()
         for ticker in ["VNINDEX", "VN30", "VNMIDCAP"]:
             try:
+                # Lay 3 phien gan nhat de co prev_close chinh xac
                 df = stock.stock(symbol=ticker, source='VCI').quote.history(
-                    start=TODAY, end=TODAY, interval='1D'
+                    start=two_days, end=TODAY, interval='1D'
                 )
                 if df is None or len(df) == 0:
                     df = stock.stock(symbol=ticker, source='VCI').quote.history(
                         start=yesterday, end=TODAY, interval='1D'
                     )
                 if df is None or len(df) == 0: continue
+
                 row    = df.iloc[-1]
                 close  = sf(row.get('close', 0))
                 open_p = sf(row.get('open', close))
                 if close < 100 and close > 0: close*=1000; open_p*=1000
                 if close < 100: continue
+
+                # Neu open == close (VCI tra sai cho VNMIDCAP)
+                # thi dung prev_close tu phien truoc
+                if abs(open_p - close) < 0.001 and len(df) >= 2:
+                    prev_close = sf(df.iloc[-2].get('close', 0))
+                    if prev_close < 100 and prev_close > 0:
+                        prev_close *= 1000
+                    if prev_close > 100:
+                        open_p = prev_close
+                        print(f"  {ticker}: dung prev_close={prev_close:.2f} thay open")
+
                 vol    = sf(row.get('volume', 0))
                 change = round(close - open_p, 2)
                 pct    = round(change / open_p * 100, 2) if open_p else 0
