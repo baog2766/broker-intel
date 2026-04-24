@@ -307,23 +307,22 @@ print("\n--- VN Indices hom nay ---")
 vn = fetch_vn_today()
 time.sleep(1)
 
-print("\n--- OHLCV lich su VNINDEX (120 phien) ---")
-ohlcv = fetch_ohlcv("VNINDEX", 120)
-time.sleep(1)
+print("\n--- OHLCV 120 phien: VNINDEX, VN30, VNMIDCAP ---")
+technical = {}
+for _ticker, _key in [("VNINDEX","vni"), ("VN30","vn30"), ("VNMIDCAP","vnmid")]:
+    print(f"\n  {_ticker}...")
+    ohlcv = fetch_ohlcv(_ticker, 120)
+    time.sleep(0.5)
+    if ohlcv:
+        t = calc_technical(ohlcv)
+        technical[_key] = t
+        print(f"  {_ticker}: MA20={t.get('ma20')} RSI={t.get('rsi14')} trend={t.get('trend',{}).get('short')}")
+        print(f"  Support={t.get('support')} Resist={t.get('resistance')}")
+    else:
+        print(f"  [WARN] {_ticker}: khong co OHLCV")
+        technical[_key] = {}
 
-print("\n--- Tinh indicators ---")
-tech = {}
-if ohlcv:
-    tech = calc_technical(ohlcv)
-    print(f"  MA20={tech.get('ma20')} MA50={tech.get('ma50')}")
-    print(f"  RSI14={tech.get('rsi14')} ({tech.get('rsi_signal')})")
-    print(f"  BB: upper={tech.get('bb',{}).get('upper')} lower={tech.get('bb',{}).get('lower')}")
-    print(f"  Trend: short={tech['trend']['short']} mid={tech['trend']['mid']} long={tech['trend']['long']}")
-    print(f"  Support: {tech.get('support')}")
-    print(f"  Resistance: {tech.get('resistance')}")
-    print(f"  Vol div: {tech.get('vol_div')}")
-else:
-    print("  [WARN] Khong co OHLCV, bo qua indicators")
+tech = technical.get("vni", {})
 
 # Merge VN data
 vni  = vn.get("VNINDEX")  or old.get("vni",  {})
@@ -346,7 +345,7 @@ data = {
     "vnmid":     vnm,
     "foreign":   fgn_final,
     "industry":  industry_final,
-    "technical": tech,   # MUC MOI: indicators VNINDEX
+    "technical": technical,  # indicators cho ca 3: vni, vn30, vnmid
 }
 
 with open("data.json","w",encoding="utf-8") as f:
@@ -360,4 +359,4 @@ print(f"\n=== XONG! {UPDATED} ===")
 print(f"VNINDEX:  {vni_v} ({vni_p:+.2f}%)")
 print(f"VN30:     {vn30.get('value','?') if isinstance(vn30,dict) else '?'}")
 print(f"VNMIDCAP: {vnm.get('value','?') if isinstance(vnm,dict) else '?'}")
-print(f"Technical: {len(tech)} fields")
+print(f"Technical: {len(technical)} indices ({', '.join(technical.keys())})")
