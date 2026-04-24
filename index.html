@@ -993,120 +993,55 @@ function renderTongHop() {
     : '<span style="color:var(--yellow);font-size:10px">● PLACEHOLDER</span>';
 
   return '<div class="ch">'
-    + '<div class="ct">📊 Tổng Hợp Thị Trường</div>'
-    + '<div class="csub">GitHub Actions: <strong id="dataUpdated">' + (LIVE.vni.value != null ? (typeof LIVE.ts !== "undefined" ? new Date().toLocaleDateString("vi-VN") : "--") : "--") + '</strong>'
+    + '<div class="ct" style="font-size:18px;font-weight:800">📊 Tổng Hợp Thị Trường</div>'
+    + '<div class="csub" style="font-size:13px">GitHub Actions: <strong id="dataUpdated">' + (LIVE.vni.value != null ? new Date().toLocaleDateString("vi-VN") : "--") + '</strong>'
     + ' &nbsp;|&nbsp; Trang load: <strong>' + new Date().toLocaleTimeString('vi-VN') + '</strong>'
     + ' &nbsp;' + statusBadge + '</div>'
     + '</div>'
 
-    + '<div class="verdict ' + verdictCls + '">'
-    + '<div class="vi">' + verdictIcon + '</div>'
-    + '<div><div class="vl">Verdict hôm nay</div>'
-    + '<div class="vt">' + verdictTxt + '</div>'
-    + '<div class="vs">'
-    + 'KL: <strong>' + (LIVE.vni.vol != null ? fmt(LIVE.vni.vol, 0) + 'M cp' : '--') + '</strong>'
-    + ' · GT: <strong>' + (LIVE.vni.val != null ? fmtI(LIVE.vni.val) + ' tỷ' : '--') + '</strong>'
-    + ' · Khối ngoại: <span class="' + cls(fgn.net) + '">'
-    + (LIVE.foreign.net != null ? (fgn.net >= 0 ? 'Mua' : 'Bán') + ' ròng ' + fmtT(Math.abs(fgn.net || 0) * 1e9) : '<span style="color:var(--yellow)">[DEMO] ' + fmtT(Math.abs(fgn.net || 0) * 1e9) + '</span>')
-    + '</span></div></div></div>'
+    + '<div class="verdict ' + verdictCls + '" style="margin-bottom:20px">'
+    + '<div class="vi" style="font-size:28px">' + verdictIcon + '</div>'
+    + '<div><div class="vl" style="font-size:11px">VERDICT HÔM NAY</div>'
+    + '<div class="vt" style="font-size:18px;font-weight:800">' + verdictTxt + '</div>'
+    + '<div class="vs" style="font-size:13px;margin-top:4px">'
+    + 'KL: <strong>' + (LIVE.vni.vol != null ? fmt(LIVE.vni.vol) + 'M cp' : '--') + '</strong>'
+    + ' &nbsp;·&nbsp; GT: <strong>' + (LIVE.vni.val != null ? fmtI(LIVE.vni.val) + ' tỷ' : '--') + '</strong>'
+    + '</div></div></div>'
 
-    + '<div class="cg2">'
-
-    /* Card 1: Khối ngoại — LIVE nếu API thành công, DEMO nếu chưa có */
-    + '<div class="card"><div class="cl">💱 Dòng tiền khối ngoại'
-    + (LIVE.foreign.net != null ? ' <span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px;letter-spacing:0">LIVE</span>' : ' <span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px;letter-spacing:0">DEMO</span>')
-    + '</div>'
-    + '<div class="cv ' + cls(fgn.net) + '">' + fmtT((fgn.net || 0) * 1e9) + '</div>'
-    + '<div class="cd">Mua: <strong>' + fmtT((fgn.buy || 0) * 1e9) + '</strong> · Bán: <strong>' + fmtT((fgn.sell || 0) * 1e9) + '</strong>'
-    + (LIVE.foreign.net == null ? '<br><span style="font-size:10px;color:var(--yellow)">⚠ Đang dùng số demo, chờ API kết nối</span>' : '')
-    + '</div></div>'
-
-    /* Card 2: Ngành nổi bật — LIVE nếu có industry thật */
-    + (function() {
-        var topSectors = sectors.filter(function(s) { return s.pct > 0; }).slice(0,3);
-        var badge = isIndustryLive
-          ? '<span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px;letter-spacing:0">LIVE</span>'
-          : '<span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px;letter-spacing:0">DEMO</span>';
-        var topName = topSectors.length
-          ? topSectors.slice(0,2).map(function(s){return s.name;}).join(' · ')
-          : '--';
-        var chips = topSectors.map(function(s) {
-          return '<span class="chip up">' + s.name + ' +' + fmt(s.pct) + '%</span>';
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px">'
+    + (function(){
+        var arr = [
+          {sec:'vnindex',  label:'VNINDEX',  d: LIVE.vni.value  != null ? LIVE.vni  : PH.vni},
+          {sec:'vn30',     label:'VN30',     d: LIVE.vn30.value != null ? LIVE.vn30 : PH.vn30},
+          {sec:'vnmidcap', label:'VNMIDCAP', d: LIVE.vnmid.value!= null ? LIVE.vnmid: PH.vnmid},
+        ];
+        return arr.map(function(a){
+          var c = cls(a.d.pct);
+          return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;cursor:pointer;transition:border-color .2s" onclick="setSection(\'' + a.sec + '\')" onmouseover="this.style.borderColor=\'rgba(37,99,235,.5)\'" onmouseout="this.style.borderColor=\'\'">'
+            + '<div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:1.5px;margin-bottom:8px">' + a.label + '</div>'
+            + '<div style="font-size:24px;font-weight:800;font-family:var(--mono);color:var(--' + c + ')">' + fmt(a.d.value) + '</div>'
+            + '<div style="font-size:15px;font-weight:700;color:var(--' + c + ');margin-top:4px">' + sign(a.d.pct) + fmt(Math.abs(a.d.pct)) + '%</div>'
+            + '<div style="font-size:11px;color:var(--text3);margin-top:8px;border-top:1px solid var(--border);padding-top:8px">Bấm để xem phân tích kỹ thuật →</div>'
+            + '</div>';
         }).join('');
-        return '<div class="card"><div class="cl">🏭 Ngành nổi bật ' + badge + '</div>'
-          + '<div class="cv up" style="font-size:14px">' + topName + '</div>'
-          + '<div class="cd"><div class="chips" style="margin-top:4px">' + chips + '</div>'
-          + (!isIndustryLive ? '<span style="font-size:10px;color:var(--yellow)">⚠ Chờ workflow 15:30</span>' : '')
-          + '</div></div>';
       })()
-
-    /* Card 3: Tín hiệu kỹ thuật — DEMO */
-    + '<div class="card"><div class="cl">📐 Tín hiệu kỹ thuật <span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px;letter-spacing:0">DEMO</span></div>'
-    + '<div class="cv flat" style="font-size:14px">Chưa tính toán</div>'
-    + '<div class="cd" style="color:var(--yellow)">⚠ Sẽ được tính từ dữ liệu giá thật (Phase 2)</div></div>'
-
-    /* Card 4: Rủi ro — DEMO */
-    + '<div class="card"><div class="cl">⚠️ Rủi ro hôm nay <span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px;letter-spacing:0">DEMO</span></div>'
-    + '<div class="cv flat" style="font-size:14px">Chưa đánh giá</div>'
-    + '<div class="cd" style="color:var(--yellow)">⚠ Sẽ được bổ sung ở Phase 2 (nhận định)</div></div>'
     + '</div>'
 
-    + '<div class="block"><div class="btitle">🌍 Thị Trường Thế Giới</div>'
+    + '<div class="block"><div class="btitle" style="font-size:15px">🌍 Thị Trường Thế Giới</div>'
     + '<div class="world-grid">' + worldHTML + '</div></div>'
 
-    + '<div class="block"><div class="btitle">📦 Hàng Hóa & Tỷ Giá</div>'
+    + '<div class="block"><div class="btitle" style="font-size:15px">📦 Hàng Hóa & Tỷ Giá</div>'
     + '<div class="comm-grid">' + commHTML + '</div></div>'
 
-    + '<div class="block"><div class="btitle">📰 Tin Tức</div>'
+    + '<div class="block"><div class="btitle" style="font-size:15px">📰 Tin Tức</div>'
     + '<div class="news-tabs">'
-    + '<div class="ntab ' + (newsTab === 'vn' ? 'active' : '') + '" onclick="switchNewsTab(\'vn\')">🇻🇳 Trong nước</div>'
-    + '<div class="ntab ' + (newsTab === 'world' ? 'active' : '') + '" onclick="switchNewsTab(\'world\')">🌐 Quốc tế</div>'
+    + '<div class="ntab ' + (newsTab === 'vn' ? 'active' : '') + '" onclick="switchNewsTab('vn')">🇻🇳 Trong nước</div>'
+    + '<div class="ntab ' + (newsTab === 'world' ? 'active' : '') + '" onclick="switchNewsTab('world')">🌐 Quốc tế</div>'
     + '</div>'
     + '<div id="newsContent"><div class="news-list">'
     + renderNewsItems(newsTab === 'vn' ? LIVE.news.vn : LIVE.news.world)
     + '</div></div></div>'
 
-    + '<div class="block"><div class="btitle">🏭 Hiệu Suất Ngành Hôm Nay &nbsp;'
-  + (isIndustryLive
-      ? '<span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px">LIVE</span>'
-      : '<span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px">DEMO</span>')
-  + '</div>'
-  + (!isIndustryLive ? '<div style="font-size:11px;color:var(--yellow);margin-bottom:10px;padding:6px 10px;background:rgba(245,158,11,.06);border-radius:6px;border-left:2px solid var(--yellow)">⚠ Đang dùng dữ liệu demo. Workflow sẽ cập nhật số thật lúc 15:30.</div>' : '')
-  + sectorsHTML + '</div>'
-
-  + (function() {
-      var bt = LIVE.brokerTake;
-      var pvTxt = bt && bt.verdict
-        ? bt.verdict.emoji + ' <strong>' + bt.verdict.headline + '</strong> — ' + bt.verdict.summary
-        : '<span style="color:var(--yellow)">⚠ Chưa có nhận định hôm nay. Cập nhật sau 15:30.</span>';
-      var todayVN2 = new Date().toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});
-      var btStale2 = bt && bt.date && bt.date.replace(/\/0(\d)\//g,'/$1/') !== todayVN2.replace(/\/0(\d)\//g,'/$1/');
-      var badge = bt && bt.verdict
-        ? (btStale2
-            ? '<span style="color:#f87171;font-size:9px;font-weight:700;background:rgba(239,68,68,.1);padding:1px 5px;border-radius:10px">NGÀY CŨ</span>'
-            : bt.generated_by === 'auto'
-              ? '<span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 5px;border-radius:10px">AUTO</span>'
-              : '<span style="color:var(--accent2);font-size:9px;font-weight:700;background:rgba(37,99,235,.1);padding:1px 5px;border-radius:10px">MANUAL</span>')
-        : '<span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 5px;border-radius:10px">DEMO</span>';
-      var pvTxtColor = btStale2 ? 'color:#f87171' : '';
-      return '<div class="pvbox"><div>'
-        + '<div class="pvlbl">📝 Broker\'s Take — ' + (bt && bt.date ? bt.date : 'Hôm nay') + ' ' + badge + '</div>'
-        + '<div class="pvtxt" style="' + (btStale2?'color:#f87171':'') + '">' + (btStale2 ? '⚠ Nhận định ngày cũ (' + (bt?bt.date:'--') + ') — cần cập nhật hôm nay' : pvTxt) + '</div>'
-        + '</div><button class="pvbtn" onclick="setSection(\'brokers-take\')">Xem đầy đủ →</button></div>';
-    })()
-}
-
-function switchNewsTab(tab) {
-  newsTab = tab;
-  var el = document.getElementById('newsContent');
-  if (el) el.innerHTML = '<div class="news-list">' + renderNewsItems(tab === 'vn' ? LIVE.news.vn : LIVE.news.world) + '</div>';
-  document.querySelectorAll('.ntab').forEach(function(el) {
-    el.classList.toggle('active',
-      (tab === 'vn' && el.textContent.indexOf('Trong') !== -1) ||
-      (tab === 'world' && el.textContent.indexOf('Quốc') !== -1)
-    );
-  });
-}
 
 function renderIndex(key, title, icon, sub) {
   var liveD = key==='vni' ? LIVE.vni : key==='vn30' ? LIVE.vn30 : LIVE.vnmid;
@@ -1135,8 +1070,8 @@ function renderIndex(key, title, icon, sub) {
   var html = '<div class="ch">'
     + '<div class="ct">' + icon + ' ' + title
     + (isLive
-        ? ' <span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px">LIVE DATA</span>'
-        : ' <span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px">DEMO</span>')
+        ? ' <span style="color:var(--green);font-size:10px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px">LIVE DATA</span>'
+        : ' <span style="color:var(--yellow);font-size:10px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px">DEMO</span>')
     + '</div>'
     + '<div class="csub">Giá hiện tại: <strong style="color:var(--' + c + ')">' + fmt(d.value) + ' điểm</strong>'
     + ' (' + sign(d.pct) + fmt(d.pct) + '%)'
@@ -1148,7 +1083,7 @@ function renderIndex(key, title, icon, sub) {
     var base = d.value || 1289;
     var r1 = Math.round(base*1.005/0.5)*0.5;
     var s1 = Math.round(base*0.994/0.5)*0.5;
-    html += '<div style="padding:14px 16px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--text2)">'
+    html += '<div style="padding:14px 16px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:14px;font-size:13px;color:var(--text2)">'
       + '⚠ Chưa có data kỹ thuật. Workflow sẽ tính toán từ 120 phiên OHLCV sau 15:30 hôm nay.<br>'
       + '<span style="color:var(--text3)">Hiện đang hiển thị mức ước tính ±0.5% từ giá hiện tại.</span>'
       + '</div>'
@@ -1203,23 +1138,23 @@ function renderIndex(key, title, icon, sub) {
   if (sub === prefix + '-trend') {
     html += '<div class="block">'
       + '<div class="btitle">📊 Xu Hướng Giá</div>'
-      + '<div style="padding:12px 14px">'
+      + '<div style="padding:14px 16px">'
       /* 3 khung thoi gian */
       + '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--bg3);border-radius:8px">'
-      + '<div><div style="font-size:12px;font-weight:600">Ngắn hạn</div><div style="font-size:11px;color:var(--text2)">MA10 = ' + fmt(tc.ma10) + ' · Giá ' + (currClose > tc.ma10 ? 'trên' : 'dưới') + ' MA10</div></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;background:var(--bg3);border-radius:8px">'
+      + '<div><div style="font-size:13px;font-weight:600">Ngắn hạn</div><div style="font-size:12px;color:var(--text2)">MA10 = ' + fmt(tc.ma10) + ' · Giá ' + (currClose > tc.ma10 ? 'trên' : 'dưới') + ' MA10</div></div>'
       + trendBadge(trend.short) + '</div>'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--bg3);border-radius:8px">'
-      + '<div><div style="font-size:12px;font-weight:600">Trung hạn</div><div style="font-size:11px;color:var(--text2)">MA50 = ' + fmt(tc.ma50) + ' · Giá ' + (currClose > tc.ma50 ? 'trên' : 'dưới') + ' MA50</div></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;background:var(--bg3);border-radius:8px">'
+      + '<div><div style="font-size:13px;font-weight:600">Trung hạn</div><div style="font-size:12px;color:var(--text2)">MA50 = ' + fmt(tc.ma50) + ' · Giá ' + (currClose > tc.ma50 ? 'trên' : 'dưới') + ' MA50</div></div>'
       + trendBadge(trend.mid) + '</div>'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--bg3);border-radius:8px">'
-      + '<div><div style="font-size:12px;font-weight:600">Dài hạn</div><div style="font-size:11px;color:var(--text2)">MA100 = ' + fmt(tc.ma100) + ' · Giá ' + (currClose > (tc.ma100||0) ? 'trên' : 'dưới') + ' MA100</div></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;background:var(--bg3);border-radius:8px">'
+      + '<div><div style="font-size:13px;font-weight:600">Dài hạn</div><div style="font-size:12px;color:var(--text2)">MA100 = ' + fmt(tc.ma100) + ' · Giá ' + (currClose > (tc.ma100||0) ? 'trên' : 'dưới') + ' MA100</div></div>'
       + trendBadge(trend.long) + '</div>'
       + '</div>'
       /* Bang MA */
       + '<div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:16px">'
-      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">ĐƯỜNG TRUNG BÌNH</div>'
-      + '<div style="display:grid;grid-template-columns:60px 1fr 60px 1fr;gap:6px 12px;font-size:12px">'
+      + '<div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">ĐƯỜNG TRUNG BÌNH</div>'
+      + '<div style="display:grid;grid-template-columns:60px 1fr 60px 1fr;gap:6px 12px;font-size:13px">'
       + '<span style="color:var(--text2)">MA5</span><span style="font-family:var(--mono);font-weight:600;color:' + numColor(tc.ma5,currClose>tc.ma5?tc.ma5:null) + '">' + (tc.ma5?fmt(tc.ma5):'--') + '</span>'
       + '<span style="color:var(--text2)">MA20</span><span style="font-family:var(--mono);font-weight:600;color:' + (currClose>tc.ma20?'var(--green)':'var(--red)') + '">' + (tc.ma20?fmt(tc.ma20):'--') + '</span>'
       + '<span style="color:var(--text2)">MA50</span><span style="font-family:var(--mono);font-weight:600;color:' + (currClose>tc.ma50?'var(--green)':'var(--red)') + '">' + (tc.ma50?fmt(tc.ma50):'--') + '</span>'
@@ -1227,26 +1162,26 @@ function renderIndex(key, title, icon, sub) {
       + '</div></div>'
       /* RSI + BB */
       + '<div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:16px">'
-      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">MOMENTUM</div>'
-      + '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px">'
+      + '<div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">MOMENTUM</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;font-size:13px">'
       + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">RSI(14)</span>'
       + '<span><strong style="font-family:var(--mono);color:' + (rsi>70?'var(--red)':rsi<30?'var(--green)':'var(--accent2)') + '">' + (rsi||'--') + '</strong>'
-      + ' <span style="font-size:10px;color:var(--text2)">— ' + (rsi>70?'Vùng quá mua, cẩn thận điều chỉnh':rsi<30?'Vùng quá bán, có thể phục hồi':'Trung tính, chưa cực đoan') + '</span></span></div>'
+      + ' <span style="font-size:11px;color:var(--text2)">— ' + (rsi>70?'Vùng quá mua, cẩn thận điều chỉnh':rsi<30?'Vùng quá bán, có thể phục hồi':'Trung tính, chưa cực đoan') + '</span></span></div>'
       + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">BB(20,2)</span>'
-      + '<span style="font-family:var(--mono);font-size:11px">' + (bb.lower?fmt(bb.lower):'--') + ' – ' + (bb.upper?fmt(bb.upper):'--') + '</span></div>'
+      + '<span style="font-family:var(--mono);font-size:12px">' + (bb.lower?fmt(bb.lower):'--') + ' – ' + (bb.upper?fmt(bb.upper):'--') + '</span></div>'
       + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Vị trí trong BB</span>'
       + '<span><strong>' + (bbPos!==null&&bbPos!==undefined?bbPos+'%':'--') + '</strong>'
-      + ' <span style="font-size:10px;color:var(--text2)">— ' + (bbPos>85?'Gần band trên, áp lực':bbPos<15?'Gần band dưới, hỗ trợ':'Trong biên độ bình thường') + '</span></span></div>'
+      + ' <span style="font-size:11px;color:var(--text2)">— ' + (bbPos>85?'Gần band trên, áp lực':bbPos<15?'Gần band dưới, hỗ trợ':'Trong biên độ bình thường') + '</span></span></div>'
       + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">BB Width</span>'
-      + '<span>' + (bb.width?'<strong>' + bb.width + '%</strong> <span style="font-size:10px;color:var(--text2)">— ' + (bb.width<5?'Biên độ hẹp, sắp bùng nổ':bb.width>30?'Biên độ rộng, volatility cao':'Bình thường') + '</span>':'--') + '</span></div>'
+      + '<span>' + (bb.width?'<strong>' + bb.width + '%</strong> <span style="font-size:11px;color:var(--text2)">— ' + (bb.width<5?'Biên độ hẹp, sắp bùng nổ':bb.width>30?'Biên độ rộng, volatility cao':'Bình thường') + '</span>':'--') + '</span></div>'
       + '</div></div>'
       /* Khoi luong */
       + '<div style="border-top:1px solid var(--border);padding-top:12px">'
-      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">KHỐI LƯỢNG</div>'
-      + '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px">'
+      + '<div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">KHỐI LƯỢNG</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;font-size:13px">'
       + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">KL hôm nay</span>'
       + '<span><strong style="font-family:var(--mono)">' + (tc.vol_today?fmt(tc.vol_today)+'M':'--') + '</strong>'
-      + (tc.vma20 ? ' <span style="font-size:10px;color:var(--text2)">(VMA20: ' + fmt(tc.vma20) + 'M)</span>' : '') + '</span></div>'
+      + (tc.vma20 ? ' <span style="font-size:11px;color:var(--text2)">(VMA20: ' + fmt(tc.vma20) + 'M)</span>' : '') + '</span></div>'
       + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">So VMA20</span>'
       + '<span>' + (tc.vol_today&&tc.vma20 ? '<strong style="color:' + (tc.vol_today>tc.vma20?'var(--green)':'var(--red)') + '">' + (tc.vol_today>tc.vma20?'Trên TB — dòng tiền tham gia tốt':'Dưới TB — dòng tiền yếu hơn bình thường') + '</strong>' : '--') + '</span></div>'
       + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Phân kỳ giá-KL</span>'
@@ -1261,7 +1196,7 @@ function renderIndex(key, title, icon, sub) {
   if (sub === prefix + '-sr') {
     html += '<div class="block">'
       + '<div class="btitle">🎯 Hỗ Trợ & Kháng Cự</div>'
-      + '<div style="padding:12px 14px">'
+      + '<div style="padding:14px 16px">'
       /* Levels */
       + '<div class="levels" style="margin-bottom:16px">';
 
@@ -1272,21 +1207,21 @@ function renderIndex(key, title, icon, sub) {
       'Vùng cung lịch sử',
     ];
     if (resist.length === 0) {
-      html += '<div class="lvl r"><span class="lvl-lbl">Kháng cự 1 <span style="font-size:9px;color:var(--yellow)">(ước tính)</span></span>'
+      html += '<div class="lvl r"><span class="lvl-lbl">Kháng cự 1 <span style="font-size:10px;color:var(--yellow)">(ước tính)</span></span>'
         + '<span class="lvl-val">' + fmt(Math.round(currClose*1.008/0.5)*0.5) + '</span></div>';
     } else {
       resist.slice(0,2).forEach(function(r,i) {
         html += '<div class="lvl r"><span class="lvl-lbl">' + rLabels[i]
-          + (i===0&&toR?' <span style="font-size:9px;font-weight:700;color:var(--red)">còn +'+toR+'%</span>':'')
+          + (i===0&&toR?' <span style="font-size:10px;font-weight:700;color:var(--red)">còn +'+toR+'%</span>':'')
           + '</span><span class="lvl-val">' + fmt(r) + '</span>'
-          + '<span style="font-size:9px;color:var(--text2);margin-left:auto">' + rReasons[i] + '</span></div>';
+          + '<span style="font-size:10px;color:var(--text2);margin-left:auto">' + rReasons[i] + '</span></div>';
       });
     }
 
     /* Hien tai */
     html += '<div class="lvl cur"><span class="lvl-lbl">▶ Hiện tại</span>'
       + '<span class="lvl-val" style="color:var(--' + c + ')">' + fmt(currClose) + '</span>'
-      + '<span style="font-size:9px;color:var(--accent2);margin-left:auto">ATR(14)=' + (atr?fmt(atr):'--') + '</span></div>';
+      + '<span style="font-size:10px;color:var(--accent2);margin-left:auto">ATR(14)=' + (atr?fmt(atr):'--') + '</span></div>';
 
     /* Ho tro */
     var sLabels  = ['Hỗ trợ 1','Hỗ trợ 2'];
@@ -1295,23 +1230,23 @@ function renderIndex(key, title, icon, sub) {
       tc.ma50&&Math.abs((support[1]||0)-tc.ma50)<10?'MA50':'Đáy cũ / Vùng cầu',
     ];
     if (support.length === 0) {
-      html += '<div class="lvl s"><span class="lvl-lbl">Hỗ trợ 1 <span style="font-size:9px;color:var(--yellow)">(ước tính)</span></span>'
+      html += '<div class="lvl s"><span class="lvl-lbl">Hỗ trợ 1 <span style="font-size:10px;color:var(--yellow)">(ước tính)</span></span>'
         + '<span class="lvl-val">' + fmt(Math.round(currClose*0.992/0.5)*0.5) + '</span></div>';
     } else {
       support.slice(0,2).forEach(function(s,i) {
         html += '<div class="lvl s"><span class="lvl-lbl">' + sLabels[i]
-          + (i===0&&toS?' <span style="font-size:9px;font-weight:700;color:var(--green)">còn -'+toS+'%</span>':'')
+          + (i===0&&toS?' <span style="font-size:10px;font-weight:700;color:var(--green)">còn -'+toS+'%</span>':'')
           + '</span><span class="lvl-val">' + fmt(s) + '</span>'
-          + '<span style="font-size:9px;color:var(--text2);margin-left:auto">' + sReasons[i] + '</span></div>';
+          + '<span style="font-size:10px;color:var(--text2);margin-left:auto">' + sReasons[i] + '</span></div>';
       });
     }
     html += '</div>';
 
     /* BB band thong tin */
     if (bb.upper) {
-      html += '<div style="background:var(--bg3);border-radius:8px;padding:12px 14px;margin-bottom:14px">'
-        + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">BOLLINGER BANDS (20,2)</div>'
-        + '<div style="display:flex;flex-direction:column;gap:6px;font-size:12px">'
+      html += '<div style="background:var(--bg3);border-radius:8px;padding:14px 16px;margin-bottom:14px">'
+        + '<div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">BOLLINGER BANDS (20,2)</div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px;font-size:13px">'
         + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Band trên</span><span style="font-family:var(--mono);color:var(--red)">' + fmt(bb.upper) + '</span></div>'
         + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Đường giữa (MA20)</span><span style="font-family:var(--mono)">' + fmt(bb.mid) + '</span></div>'
         + '<div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Band dưới</span><span style="font-family:var(--mono);color:var(--green)">' + fmt(bb.lower) + '</span></div>'
@@ -1321,9 +1256,9 @@ function renderIndex(key, title, icon, sub) {
 
     /* ATR giải thich */
     if (atr) {
-      html += '<div style="background:var(--bg3);border-radius:8px;padding:12px 14px">'
-        + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">ATR(14) — ĐỘ BIẾN ĐỘNG TRUNG BÌNH</div>'
-        + '<div style="font-size:12px;line-height:1.7">'
+      html += '<div style="background:var(--bg3);border-radius:8px;padding:14px 16px">'
+        + '<div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">ATR(14) — ĐỘ BIẾN ĐỘNG TRUNG BÌNH</div>'
+        + '<div style="font-size:13px;line-height:1.7">'
         + 'ATR = <strong style="font-family:var(--mono)">' + fmt(atr) + '</strong> điểm/phiên'
         + ' (' + (atr/currClose*100).toFixed(2) + '% so với giá)<br>'
         + '<span style="color:var(--text2)">Biên độ dao động kỳ vọng 1 phiên: '
@@ -1338,7 +1273,7 @@ function renderIndex(key, title, icon, sub) {
   if (sub === prefix + '-rec') {
     html += '<div class="block">'
       + '<div class="btitle">💼 Khuyến Nghị & Kịch Bản</div>'
-      + '<div style="padding:12px 14px">'
+      + '<div style="padding:14px 16px">'
 
       /* Signal box */
       + '<div class="verdict ' + sigCls + '" style="margin-bottom:16px">'
@@ -1348,20 +1283,53 @@ function renderIndex(key, title, icon, sub) {
       + '<div class="vs">Điểm: ' + bull + '/7 · RSI=' + (rsi||'--') + ' · ' + (volDiv==='NEGATIVE'?'KL phân kỳ âm':volDiv==='POSITIVE'?'KL xác nhận':'KL trung tính') + '</div>'
       + '</div></div>'
 
-      /* Luan diem */
-      + '<div style="border-bottom:1px solid var(--border);padding-bottom:14px;margin-bottom:14px">'
-      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">LUẬN ĐIỂM</div>'
-      + '<div style="font-size:12px;line-height:1.8;color:var(--text)">'
-      + '• Xu hướng giá: <strong>' + (trend.short===trend.mid&&trend.mid===trend.long?'Đồng thuận ' + (trend.short==='TANG'?'tăng 3 khung':'giảm 3 khung'):'Phân kỳ giữa các khung') + '</strong><br>'
-      + '• Momentum RSI: <strong>' + (rsi>70?'Quá mua ('+rsi+') — rủi ro điều chỉnh ngắn hạn':rsi<30?'Quá bán ('+rsi+') — tiềm năng phục hồi':'Trung tính ('+rsi+') — chưa cực đoan') + '</strong><br>'
-      + '• Khối lượng: <strong>' + (volDiv==='NEGATIVE'?'Phân kỳ âm — giá tăng nhưng KL giảm → độ tin cậy thấp':volDiv==='POSITIVE'?'Dương — KL xác nhận xu hướng':'Trung tính — chưa có tín hiệu rõ') + '</strong><br>'
-      + '• Vị trí BB: <strong>' + (bbPos>85?'Gần band trên ('+bbPos+'%) — đang test kháng cự':bbPos<15?'Gần band dưới ('+bbPos+'%) — đang test hỗ trợ':'Trong biên độ ('+bbPos+'%) — bình thường') + '</strong>'
+      /* Hanh dong */
+      + '<div style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">'
+      + '<div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:10px">LUẬN ĐIỂM CHI TIẾT</div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px">'
+
+      + '<div style="background:var(--bg3);border-radius:8px;padding:11px 14px;line-height:1.7">'
+      + '<div style="font-weight:700;margin-bottom:4px">① Xu hướng giá</div>'
+      + (trend.short===trend.mid&&trend.mid===trend.long
+          ? (trend.short==='TANG'
+              ? 'Đồng thuận tăng cả 3 khung (ngắn/trung/dài hạn). Khi MA10, MA50, MA100 đều dưới giá thì uptrend được xác nhận mạnh — đây là setup tích cực nhất.'
+              : '<span style="color:var(--red)">Đồng thuận giảm cả 3 khung. Downtrend rõ ràng, cần tín hiệu đảo chiều mạnh từ volume và giá trước khi mua vào.</span>')
+          : '<span style="color:var(--yellow)">Phân kỳ giữa các khung — ngắn và dài hạn chưa đồng thuận. Rủi ro cao hơn bình thường, ưu tiên chờ tín hiệu rõ hơn.</span>')
+      + '</div>'
+
+      + '<div style="background:var(--bg3);border-radius:8px;padding:11px 14px;line-height:1.7">'
+      + '<div style="font-weight:700;margin-bottom:4px">② Động lượng RSI(' + (rsi||'--') + ')</div>'
+      + (rsi>70
+          ? '<span style="color:var(--red)">Vùng quá mua — thị trường đã tăng nhanh trong ngắn hạn, xác suất điều chỉnh hoặc sideway tăng lên. Không nên chase giá, chờ RSI về dưới 65 mới gia tăng vị thế.</span>'
+          : rsi<30
+            ? '<span style="color:var(--green)">Vùng quá bán — áp lực bán đã đẩy giá xuống quá mức. Xác suất phục hồi kỹ thuật cao hơn, có thể tìm điểm mua nếu có nến đảo chiều xác nhận.</span>'
+            : 'Vùng trung tính — chưa cực đoan ở cả 2 phía. Thị trường có thể tiếp tục xu hướng hiện tại mà không bị giới hạn bởi overbought/oversold.')
+      + '</div>'
+
+      + '<div style="background:var(--bg3);border-radius:8px;padding:11px 14px;line-height:1.7">'
+      + '<div style="font-weight:700;margin-bottom:4px">③ Khối lượng giao dịch</div>'
+      + (volDiv==='NEGATIVE'
+          ? '<span style="color:var(--red)">Phân kỳ âm — giá tăng nhưng KL giảm. Cảnh báo quan trọng: xu hướng tăng không được xác nhận bởi dòng tiền. Đây có thể là cú tăng cuối (exhaustion move) trước khi điều chỉnh.</span>'
+          : volDiv==='POSITIVE'
+            ? '<span style="color:var(--green)">Phân kỳ dương — giá và KL cùng tăng. Dòng tiền đang tham gia tích cực, xác nhận chất lượng uptrend. Độ tin cậy của xu hướng cao hơn đáng kể.</span>'
+            : 'KL trung tính so với trung bình. Chưa có tín hiệu rõ về sự thay đổi dòng tiền — theo dõi thêm 2-3 phiên.')
+      + '</div>'
+
+      + '<div style="background:var(--bg3);border-radius:8px;padding:11px 14px;line-height:1.7">'
+      + '<div style="font-weight:700;margin-bottom:4px">④ Vị trí BB (' + (bbPos!==null&&bbPos!==undefined?bbPos+'%':'--') + ' trong dải)</div>'
+      + (bbPos>85
+          ? '<span style="color:var(--red)">Sát band trên — áp lực bán kỹ thuật cao. Thống kê cho thấy giá thường pullback về đường giữa MA20 (' + fmt(tc.ma20) + ') sau khi chạm band trên. ATR = ' + (atr?fmt(atr):'--') + ' điểm/phiên.</span>'
+          : bbPos<15
+            ? '<span style="color:var(--green)">Sát band dưới — vùng hỗ trợ kỹ thuật tốt. Lịch sử cho thấy giá thường phục hồi từ band dưới BB, nhất là khi không có tin xấu nền tảng đi kèm.</span>'
+            : 'Giữa dải BB — có dư địa di chuyển cả 2 chiều. BB Width = ' + (bb.width?bb.width+'%':'--') + (bb.width&&bb.width<8?' (hẹp — sắp breakout)':bb.width&&bb.width>25?' (rộng — high volatility)':' (bình thường)') + '.')
+      + '</div>'
+
       + '</div></div>'
 
       /* Hanh dong */
       + '<div style="border-bottom:1px solid var(--border);padding-bottom:14px;margin-bottom:14px">'
-      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">HÀNH ĐỘNG CỤ THỂ</div>'
-      + '<div style="background:var(--bg3);border-radius:8px;padding:12px 14px;font-size:12px;line-height:1.9">'
+      + '<div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">HÀNH ĐỘNG CỤ THỂ</div>'
+      + '<div style="background:var(--bg3);border-radius:8px;padding:14px 16px;font-size:13px;line-height:1.9">'
       + '📌 <strong>Đang nắm CP:</strong> '
       + (signal==='TANG'?'Giữ vị thế · trailing stop tại <strong>' + fmt(targetDn) + '</strong> (hỗ trợ gần nhất)':
          signal==='GIAM'?'Cân nhắc giảm tỷ trọng · stop loss nếu phá <strong>' + fmt(targetDn) + '</strong>':
@@ -1375,14 +1343,14 @@ function renderIndex(key, title, icon, sub) {
 
       /* 3 kich ban */
       + '<div>'
-      + '<div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">3 KỊCH BẢN PHIÊN TỚI</div>'
-      + '<div style="padding:11px 14px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;margin-bottom:8px;font-size:12px;line-height:1.7">'
+      + '<div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.8px;margin-bottom:8px">3 KỊCH BẢN PHIÊN TỚI</div>'
+      + '<div style="padding:11px 14px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;margin-bottom:8px;font-size:13px;line-height:1.7">'
       + '<strong class="pos">🟢 Tích cực</strong> — Vượt <strong>' + fmt(targetUp) + '</strong> kèm KL tốt<br>'
       + '<span style="color:var(--text2)">→ Mục tiêu tiếp theo: <strong>' + fmt(targetUp2) + '</strong> · Điều kiện thất bại: không giữ được ' + fmt(targetUp) + '</span></div>'
-      + '<div style="padding:11px 14px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:8px;font-size:12px;line-height:1.7">'
+      + '<div style="padding:11px 14px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;margin-bottom:8px;font-size:13px;line-height:1.7">'
       + '<strong class="flat">🟡 Cơ sở</strong> — Sideway trong biên độ <strong>' + fmt(targetDn) + '–' + fmt(targetUp) + '</strong><br>'
       + '<span style="color:var(--text2)">→ Chờ breakout hoặc breakdown để xác định hướng tiếp theo</span></div>'
-      + '<div style="padding:11px 14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:12px;line-height:1.7">'
+      + '<div style="padding:11px 14px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px;font-size:13px;line-height:1.7">'
       + '<strong class="neg">🔴 Tiêu cực</strong> — Phá <strong>' + fmt(targetDn) + '</strong> kèm KL tăng<br>'
       + '<span style="color:var(--text2)">→ Mục tiêu tiếp theo: <strong>' + fmt(targetDn2) + '</strong> · Điều kiện đảo chiều: giữ lại ' + fmt(targetDn) + ' trong 1–2 phiên</span></div>'
       + '</div>'
