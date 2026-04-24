@@ -1,0 +1,19 @@
+{
+  "updated": "24/04/2026 21:01",
+  "items": [
+    {
+      "ticker": "EVF",
+      "action": "buy",
+      "entryLow": 12.0,
+      "entryHigh": 12.0,
+      "target": null,
+      "stopLoss": null,
+      "thesis": "test hệ thống",
+      "horizon": "swing",
+      "date": "2026-04-24",
+      "id": "EVF-260424-896",
+      "tg_url": "https://t.me/MrP_trackrecord/2"
+    }
+  ],
+  "count": 1
+}
