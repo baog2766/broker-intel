@@ -1,10 +1,10 @@
 {
-  "updated": "24/04/2026 09:02",
+  "updated": "24/04/2026 09:19",
   "vni": {
-    "value": 1870.36,
-    "change": 2.05,
-    "pct": 0.11,
-    "vol": 1030.97,
+    "value": 1868.85,
+    "change": -4.38,
+    "pct": -0.23,
+    "vol": 18.54,
     "val": 0,
     "date": "1",
     "up": 0,
@@ -14,19 +14,20 @@
     "floor": 0
   },
   "vn30": {
-    "value": 2024.74,
-    "change": -9.63,
-    "pct": -0.47,
-    "vol": 429.55,
+    "value": 2023.87,
+    "change": -3.85,
+    "pct": -0.19,
+    "vol": 7.99,
     "val": 0,
     "date": "1"
   },
   "vnmid": {
-    "value": 2.23,
+    "value": 2210.0,
     "change": 0.0,
     "pct": 0.0,
-    "vol": 370.27,
-    "val": 0
+    "vol": 6.7,
+    "val": 0,
+    "date": "1"
   },
   "foreign": {
     "net": null,
