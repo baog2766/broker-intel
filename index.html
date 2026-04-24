@@ -987,50 +987,13 @@ function renderNewsItems(items) {
 function renderTongHop() {
   var vni = LIVE.vni.value != null ? LIVE.vni : PH.vni;
   var fgn = LIVE.foreign.net != null ? LIVE.foreign : PH.foreign;
-  /* Dùng industry thật từ data.json nếu có, fallback PH */
   var isIndustryLive = LIVE.industry && LIVE.industry.length > 0;
   var sectors = isIndustryLive ? LIVE.industry : PH.sectors;
   var maxSec = Math.max.apply(null, sectors.map(function(s) { return Math.abs(s.pct); })) || 1;
 
-  var worldHTML = WORLD_SYMS.map(function(w) {
-    var d = LIVE.world[w.sym];
-    var c = d ? cls(d.pct) : 'flat';
-    var valStr = d ? fmtI(Math.round(d.value)) : '--';
-    var pctStr = d ? (sign(d.pct) + fmt(Math.abs(d.pct)) + '%') : '--';
-    return '<div class="wc">'
-      + '<div class="wc-name">' + w.label + '</div>'
-      + '<div class="wc-val ' + c + '">' + valStr + '</div>'
-      + '<div class="wc-pct ' + c + '">' + pctStr + '</div>'
-      + '</div>';
-  }).join('');
-
-  var commHTML = COMM_SYMS.map(function(c) {
-    var d = LIVE.comm[c.sym];
-    var cc = d ? cls(d.pct) : 'flat';
-    return '<div class="cc">'
-      + '<div class="cc-name">' + c.label + ' <span style="font-weight:400;font-size:9px;color:var(--text3)">' + c.unit + '</span></div>'
-      + '<div class="cc-val ' + cc + '">' + (d ? fmt(d.value, 2) : '--') + '</div>'
-      + '<div class="cc-pct ' + cc + '">' + (d ? (sign(d.pct) + fmt(d.pct) + '%') : '--') + '</div>'
-      + '</div>';
-  }).join('');
-  commHTML += '<div class="cc">'
-    + '<div class="cc-name">USD/VND</div>'
-    + '<div class="cc-val flat">' + (LIVE.usdvnd ? fmtI(Math.round(LIVE.usdvnd)) : '--') + '</div>'
-    + '<div class="cc-pct" style="color:var(--text3)">Tỷ giá</div>'
-    + '</div>';
-
-  var sectorsHTML = sectors.slice().sort(function(a,b) { return b.pct - a.pct; }).map(function(s) {
-    return '<div class="secrow">'
-      + '<div class="secname">' + s.name + '</div>'
-      + '<div class="secbar-w"><div class="secbar ' + cls(s.pct) + '" style="width:' + (Math.abs(s.pct)/maxSec*100) + '%"></div></div>'
-      + '<div class="secpct ' + cls(s.pct) + '">' + sign(s.pct) + fmt(s.pct) + '%</div>'
-      + '</div>';
-  }).join('');
-
   var isVniLive   = LIVE.vni.value != null;
   var verdictCls  = vni.pct >= 0 ? 'pos' : 'neg';
   var verdictIcon = vni.pct >= 0 ? '🟢' : '🔴';
-  /* Verdict text: chỉ nêu số liệu thật, không thêm nhận định (Phase 2 sẽ bổ sung) */
   var verdictTxt  = vni.pct >= 0
     ? 'VNINDEX TĂNG — ' + sign(vni.pct) + fmt(vni.pct) + '% | VN30: ' + sign(LIVE.vn30.pct||PH.vn30.pct) + fmt(Math.abs(LIVE.vn30.pct||PH.vn30.pct)) + '%'
     : 'VNINDEX GIẢM — ' + fmt(vni.pct) + '% | VN30: ' + sign(LIVE.vn30.pct||PH.vn30.pct) + fmt(Math.abs(LIVE.vn30.pct||PH.vn30.pct)) + '%';
@@ -1122,10 +1085,36 @@ function renderTongHop() {
       })();
 }
     + '<div class="block"><div class="btitle" style="font-size:15px">🌍 Thị Trường Thế Giới</div>'
-    + '<div class="world-grid">' + worldHTML + '</div></div>'
+    + '<div class="world-grid">' + (function(){
+        return WORLD_SYMS.map(function(w) {
+          var d = LIVE.world[w.sym];
+          var c = d ? cls(d.pct) : 'flat';
+          var valStr = d ? fmtI(Math.round(d.value)) : '--';
+          var pctStr = d ? (sign(d.pct) + fmt(Math.abs(d.pct)) + '%') : '--';
+          return '<div class="wc">'
+            + '<div class="wc-name">' + w.label + '</div>'
+            + '<div class="wc-val ' + c + '">' + valStr + '</div>'
+            + '<div class="wc-pct ' + c + '">' + pctStr + '</div>'
+            + '</div>';
+        }).join('');
+      })() + '</div></div>'
 
     + '<div class="block"><div class="btitle" style="font-size:15px">📦 Hàng Hóa & Tỷ Giá</div>'
-    + '<div class="comm-grid">' + commHTML + '</div></div>'
+    + '<div class="comm-grid">' + (function(){
+        var h = COMM_SYMS.map(function(c) {
+          var d = LIVE.comm[c.sym];
+          var cc = d ? cls(d.pct) : 'flat';
+          return '<div class="cc">'
+            + '<div class="cc-name">' + c.label + ' <span style="font-weight:400;font-size:9px;color:var(--text3)">' + c.unit + '</span></div>'
+            + '<div class="cc-val ' + cc + '">' + (d ? fmt(d.value, 2) : '--') + '</div>'
+            + '<div class="cc-pct ' + cc + '">' + (d ? (sign(d.pct) + fmt(d.pct) + '%') : '--') + '</div>'
+            + '</div>';
+        }).join('');
+        h += '<div class="cc"><div class="cc-name">USD/VND</div>'
+          + '<div class="cc-val flat">' + (LIVE.usdvnd ? fmtI(Math.round(LIVE.usdvnd)) : '--') + '</div>'
+          + '<div class="cc-pct" style="color:var(--text3)">Tỷ giá</div></div>';
+        return h;
+      })() + '</div></div>'
 
     + '<div class="block"><div class="btitle" style="font-size:15px">📰 Tin Tức</div>'
     + '<div class="news-tabs">'
