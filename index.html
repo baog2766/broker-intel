@@ -317,8 +317,11 @@ var LIVE = {
   comm:    {},
   usdvnd:  null,
   industry:    null,
-  technical:   {},    /* indicators: {vni:{...}, vn30:{...}, vnmid:{...}} */
-  brokerTake:  null,  /* đọc từ broker-take.json */
+  technical:       {},    /* indicators: {vni:{...}, vn30:{...}, vnmid:{...}} */
+  brokerTake:      null,  /* đọc từ broker-take.json */
+  conviction:      null,  /* đọc từ conviction.json */
+  watchlistData:   null,  /* đọc từ watchlist.json */
+  trackRecordData: null,  /* đọc từ track-record.json */
   news:        { vn:[], world:[] },
   ts:      { vn:0, world:0, news:0 },
 };
@@ -778,6 +781,51 @@ function loadDataJson() {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   LOAD CONVICTION.JSON — đọc file do GitHub Actions sinh từ Sheets
+═══════════════════════════════════════════════════════════ */
+function loadConvictionJson() {
+  return fetchJSON('conviction.json?t=' + Date.now(), 8000)
+    .then(function(d) {
+      if (!d) return;
+      LIVE.conviction = d;
+      if (DEBUG) console.log('[conviction.json] OK — today:', d.today ? d.today.ticker : 'none', '| open:', (d.open||[]).length);
+    })
+    .catch(function(e) {
+      console.warn('[conviction.json] lỗi:', e.message);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOAD WATCHLIST.JSON — đọc file do GitHub Actions sinh từ Sheets
+═══════════════════════════════════════════════════════════ */
+function loadWatchlistJson() {
+  return fetchJSON('watchlist.json?t=' + Date.now(), 8000)
+    .then(function(d) {
+      if (!d || !d.items) return;
+      LIVE.watchlistData = d;
+      if (DEBUG) console.log('[watchlist.json] OK —', d.count, 'items');
+    })
+    .catch(function(e) {
+      console.warn('[watchlist.json] lỗi:', e.message);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOAD TRACK-RECORD.JSON — đọc file do GitHub Actions sinh từ Sheets
+═══════════════════════════════════════════════════════════ */
+function loadTrackRecordJson() {
+  return fetchJSON('track-record.json?t=' + Date.now(), 8000)
+    .then(function(d) {
+      if (!d) return;
+      LIVE.trackRecordData = d;
+      if (DEBUG) console.log('[track-record.json] OK — stats:', d.stats);
+    })
+    .catch(function(e) {
+      console.warn('[track-record.json] lỗi:', e.message);
+    });
+}
+
+/* ═══════════════════════════════════════════════════════════
    LOAD BROKER'S TAKE — đọc broker-take.json
    File này do bạn cập nhật thủ công hoặc workflow tự sinh.
 ═══════════════════════════════════════════════════════════ */
@@ -1041,6 +1089,32 @@ function renderTongHop() {
     + '<div id="newsContent"><div class="news-list">'
     + renderNewsItems(newsTab === 'vn' ? LIVE.news.vn : LIVE.news.world)
     + '</div></div></div>'
+
+    + (function(){
+        /* === CONVICTION CARD — hien conviction hom nay neu co === */
+        var cv = LIVE.conviction && LIVE.conviction.today;
+        if (!cv) return '';
+        var actionEmoji = {buy:'🟢', sell:'🔴', hold:'🟡', watch:'👀'};
+        var actionLabel = {buy:'MUA', sell:'BÁN', hold:'GIỮ', watch:'THEO DÕI'};
+        var emoji = actionEmoji[cv.action] || '📌';
+        var label = actionLabel[cv.action] || cv.action.toUpperCase();
+        var aCls  = cv.action === 'buy' ? 'pos' : cv.action === 'sell' ? 'neg' : 'neu';
+        return '<div class="verdict ' + aCls + '" style="margin-bottom:16px;cursor:pointer" onclick="setSection('track-record')">'
+          + '<div class="vi" style="font-size:24px">' + emoji + '</div>'
+          + '<div style="flex:1">'
+          + '<div class="vl">CONVICTION HÔM NAY — ' + cv.date + '</div>'
+          + '<div class="vt" style="font-size:16px">' + cv.ticker + ' — ' + label + ' &nbsp;'
+          + (cv.entryLow ? '<span style="font-family:var(--mono);font-size:14px">@ ' + cv.entryLow + (cv.entryHigh && cv.entryHigh !== cv.entryLow ? '–' + cv.entryHigh : '') + '</span>' : '')
+          + '</div>'
+          + '<div class="vs" style="font-size:12px;margin-top:4px">'
+          + (cv.target   ? '🎯 Target: <strong>' + cv.target   + '</strong> &nbsp;' : '')
+          + (cv.stopLoss ? '🛑 Stop: <strong>'   + cv.stopLoss + '</strong> &nbsp;' : '')
+          + (cv.horizon  ? '⏱ ' + cv.horizon : '')
+          + '</div>'
+          + (cv.thesis ? '<div style="font-size:12px;color:var(--text2);margin-top:6px;font-style:italic">"' + cv.thesis + '"</div>' : '')
+          + (cv.tg_url ? '<div style="font-size:10px;margin-top:6px"><a href="' + cv.tg_url + '" target="_blank" rel="noopener" style="color:var(--accent2);text-decoration:none">🔗 Xác minh timestamp Telegram →</a></div>' : '')
+          + '</div></div>';
+      })()
 
     + (function(){
         var bt = LIVE.brokerTake;
@@ -1383,39 +1457,105 @@ function renderIndex(key, title, icon, sub) {
 
 
 function renderWatchlist(sub) {
-  var sigMap = {buy:'🟢',watch:'🟡',avoid:'🔴',neutral:'⚪'};
-  var sigLbl = {buy:'MUA',watch:'THEO DÕI',avoid:'TRÁNH',neutral:'TRUNG LẬP'};
-  var sigCls = {buy:'up',watch:'flat',avoid:'down',neutral:'info'};
-  var list = PH.watchlist.slice();
-  if (sub === 'wl-buy')   list = list.filter(function(s) { return s.signal === 'buy'; });
-  if (sub === 'wl-watch') list = list.filter(function(s) { return s.signal === 'watch'; });
-  if (sub === 'wl-avoid') list = list.filter(function(s) { return s.signal === 'avoid'; });
+  /* Dung data that tu watchlist.json neu co, fallback PH */
+  var isLive    = LIVE.watchlistData && LIVE.watchlistData.items && LIVE.watchlistData.items.length > 0;
+  var rawItems  = isLive ? LIVE.watchlistData.items : PH.watchlist;
+  var liveBadge = isLive
+    ? ' <span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px">LIVE</span>'
+    : ' <span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px">DEMO</span>';
+
+  /* Chuan hoa data sang format chung */
+  var list = rawItems.map(function(item) {
+    if (isLive) {
+      return {
+        code:   item.ticker,
+        name:   item.horizon || '',
+        price:  item.entryLow || 0,
+        pct:    0,
+        signal: item.action === 'buy' ? 'buy' : item.action === 'sell' ? 'avoid' : 'watch',
+        note:   item.thesis || '',
+        target: item.target,
+        stop:   item.stopLoss,
+        date:   item.date,
+        id:     item.id,
+        tg_url: item.tg_url,
+      };
+    }
+    return item;
+  });
+
+  var filtered = list;
+  if (sub === 'wl-buy')   filtered = list.filter(function(s) { return s.signal === 'buy'; });
+  if (sub === 'wl-watch') filtered = list.filter(function(s) { return s.signal === 'watch'; });
+  if (sub === 'wl-avoid') filtered = list.filter(function(s) { return s.signal === 'avoid'; });
 
   var counts = {};
-  PH.watchlist.forEach(function(s) { counts[s.signal] = (counts[s.signal]||0)+1; });
+  list.forEach(function(s) { counts[s.signal] = (counts[s.signal]||0)+1; });
 
-  return '<div class="ch"><div class="ct">📌 Watchlist</div>'
-    + '<div class="csub">' + list.length + ' cổ phiếu</div></div>'
+  var html = '<div class="ch"><div class="ct">📌 Watchlist' + liveBadge + '</div>'
+    + '<div class="csub">' + filtered.length + ' cổ phiếu'
+    + (isLive && LIVE.watchlistData.updated ? ' · Cập nhật: ' + LIVE.watchlistData.updated : '')
+    + '</div></div>'
     + '<div class="wlf">'
-    + '<button class="wff ' + (!sub || sub === 'wl-all' ? 'active' : '') + '" onclick="setSubItem(\'wl-all\')">Tất cả (' + PH.watchlist.length + ')</button>'
-    + '<button class="wff ' + (sub === 'wl-buy' ? 'active' : '') + '" onclick="setSubItem(\'wl-buy\')">🟢 Mua (' + (counts.buy||0) + ')</button>'
-    + '<button class="wff ' + (sub === 'wl-watch' ? 'active' : '') + '" onclick="setSubItem(\'wl-watch\')">🟡 Theo dõi (' + (counts.watch||0) + ')</button>'
-    + '<button class="wff ' + (sub === 'wl-avoid' ? 'active' : '') + '" onclick="setSubItem(\'wl-avoid\')">🔴 Tránh (' + (counts.avoid||0) + ')</button>'
-    + '</div>'
-    + '<div class="block" style="padding:0;overflow:hidden"><table class="dtbl">'
+    + '<button class="wff ' + (!sub||sub==='wl-all'?'active':'') + '" onclick="setSubItem('wl-all')">Tất cả (' + list.length + ')</button>'
+    + '<button class="wff ' + (sub==='wl-buy'?'active':'') + '" onclick="setSubItem('wl-buy')">🟢 Mua (' + (counts.buy||0) + ')</button>'
+    + '<button class="wff ' + (sub==='wl-watch'?'active':'') + '" onclick="setSubItem('wl-watch')">🟡 Theo dõi (' + (counts.watch||0) + ')</button>'
+    + '<button class="wff ' + (sub==='wl-avoid'?'active':'') + '" onclick="setSubItem('wl-avoid')">🔴 Tránh (' + (counts.avoid||0) + ')</button>'
+    + '</div>';
+
+  if (filtered.length === 0) {
+    return html + '<div class="block"><div style="text-align:center;padding:32px;color:var(--text3)">'
+      + '<div style="font-size:32px;margin-bottom:12px">📭</div>'
+      + '<div style="font-size:14px">Chưa có cổ phiếu nào trong danh sách này.</div>'
+      + '<div style="font-size:12px;margin-top:8px;color:var(--text3)">Dùng lệnh <code>/conviction</code> trên Telegram để thêm.</div>'
+      + '</div></div>';
+  }
+
+  if (isLive) {
+    /* Hien thi dang card cho data that */
+    html += '<div style="display:flex;flex-direction:column;gap:10px">';
+    filtered.forEach(function(s) {
+      var aCls   = s.signal==='buy'?'pos':s.signal==='avoid'?'neg':'neu';
+      var aEmoji = s.signal==='buy'?'🟢':s.signal==='avoid'?'🔴':'🟡';
+      var aLabel = s.signal==='buy'?'MUA':s.signal==='avoid'?'TRÁNH':'THEO DÕI';
+      html += '<div class="block" style="padding:14px 16px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
+        + '<div><span style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--accent2)">' + s.code + '</span>'
+        + ' <span class="sigbadge ' + aCls + '">' + aEmoji + ' ' + aLabel + '</span></div>'
+        + '<div style="font-size:11px;color:var(--text3)">' + (s.date||'') + '</div>'
+        + '</div>'
+        + '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin-bottom:8px">'
+        + (s.price  ? '<span>Entry: <strong style="font-family:var(--mono)">' + s.price + '</strong></span>' : '')
+        + (s.target ? '<span>🎯 <strong style="color:var(--green);font-family:var(--mono)">' + s.target + '</strong></span>' : '')
+        + (s.stop   ? '<span>🛑 <strong style="color:var(--red);font-family:var(--mono)">' + s.stop + '</strong></span>' : '')
+        + (s.name   ? '<span style="color:var(--text3)">⏱ ' + s.name + '</span>' : '')
+        + '</div>'
+        + (s.note ? '<div style="font-size:12px;color:var(--text2);font-style:italic;margin-bottom:8px">"' + s.note + '"</div>' : '')
+        + (s.tg_url ? '<a href="' + s.tg_url + '" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent2);text-decoration:none">🔗 Verify timestamp →</a>' : '')
+        + '</div>';
+    });
+    return html + '</div>';
+  }
+
+  /* Fallback PH: hien thi dang table */
+  return html + '<div class="block" style="padding:0;overflow:hidden"><table class="dtbl">'
     + '<thead><tr><th>Mã / Tên</th><th>Giá (đ)</th><th>% Ngày</th><th>Tín Hiệu</th><th>Ghi Chú</th></tr></thead>'
     + '<tbody>'
-    + list.map(function(s) {
+    + filtered.map(function(s) {
+        var sigMap = {buy:'🟢',watch:'🟡',avoid:'🔴',neutral:'⚪'};
+        var sigLbl = {buy:'MUA',watch:'THEO DÕI',avoid:'TRÁNH',neutral:'TRUNG LẬP'};
+        var sigClsM= {buy:'up',watch:'flat',avoid:'down',neutral:'info'};
         return '<tr>'
           + '<td><div class="tc">' + s.code + '</div><div class="tn2">' + s.name + '</div></td>'
           + '<td>' + fmtI(s.price) + '</td>'
           + '<td><span class="sigbadge ' + cls(s.pct) + '">' + sign(s.pct) + fmt(s.pct) + '%</span></td>'
-          + '<td><span style="font-size:14px">' + sigMap[s.signal] + '</span> <span class="' + sigCls[s.signal] + '" style="font-size:11px;font-weight:600">' + sigLbl[s.signal] + '</span></td>'
+          + '<td><span style="font-size:14px">' + sigMap[s.signal] + '</span> <span class="' + sigClsM[s.signal] + '" style="font-size:11px;font-weight:600">' + sigLbl[s.signal] + '</span></td>'
           + '<td style="font-size:12px;color:var(--text2)">' + s.note + '</td>'
           + '</tr>';
       }).join('')
     + '</tbody></table></div>';
 }
+
 
 function renderBrokersTake() {
   var bt = LIVE.brokerTake;
@@ -1494,6 +1634,87 @@ function renderBrokersTake() {
 }
 
 function renderTrackRecord(sub) {
+  /* Dung data that tu track-record.json neu co, fallback PH */
+  var isLive = LIVE.trackRecordData && LIVE.trackRecordData.stats;
+  var liveBadge = isLive
+    ? ' <span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px">LIVE</span>'
+    : ' <span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 6px;border-radius:10px">DEMO</span>';
+
+  if (isLive) {
+    var stats   = LIVE.trackRecordData.stats;
+    var opens   = LIVE.trackRecordData.open   || [];
+    var closed  = LIVE.trackRecordData.closed || [];
+
+    /* Filter theo sub */
+    var listOpen   = opens;
+    var listClosed = closed;
+    var displayList = sub === 'tr-open' ? opens : sub === 'tr-closed' ? closed : opens.concat(closed);
+
+    var html = '<div class="ch"><div class="ct">📚 Track Record' + liveBadge + '</div>'
+      + '<div class="csub">Lịch sử khuyến nghị có xác minh Telegram'
+      + (LIVE.trackRecordData.updated ? ' · ' + LIVE.trackRecordData.updated : '')
+      + '</div></div>'
+      + '<div class="trsum">'
+      + '<div class="trstat"><div class="trsval up">' + (stats.winRate||0) + '%</div><div class="trslbl">WIN RATE</div></div>'
+      + '<div class="trstat"><div class="trsval ' + (stats.avgReturn>=0?'up':'down') + '">' + sign(stats.avgReturn||0) + fmt(stats.avgReturn||0) + '%</div><div class="trslbl">LỢI NHUẬN TB</div></div>'
+      + '<div class="trstat"><div class="trsval flat">' + opens.length + '</div><div class="trslbl">VỊ THẾ MỞ</div></div>'
+      + '</div>'
+      + '<div class="wlf">'
+      + '<button class="wff ' + (!sub||sub==='tr-all'?'active':'') + '" onclick="setSubItem('tr-all')">Tất cả (' + (opens.length+closed.length) + ')</button>'
+      + '<button class="wff ' + (sub==='tr-open'?'active':'') + '" onclick="setSubItem('tr-open')">🔄 Đang mở (' + opens.length + ')</button>'
+      + '<button class="wff ' + (sub==='tr-closed'?'active':'') + '" onclick="setSubItem('tr-closed')">Đã đóng (' + closed.length + ')</button>'
+      + '</div>';
+
+    if (displayList.length === 0) {
+      html += '<div class="block"><div style="text-align:center;padding:32px;color:var(--text3)">'
+        + '<div style="font-size:32px;margin-bottom:12px">📭</div>'
+        + '<div style="font-size:14px">Chưa có dữ liệu. Dùng lệnh <code>/conviction</code> để bắt đầu!</div>'
+        + '</div></div>';
+      return html;
+    }
+
+    /* Hien thi dang card */
+    html += '<div style="display:flex;flex-direction:column;gap:10px">';
+    displayList.forEach(function(c) {
+      var isOpen   = c.status === 'open';
+      var retCls   = !isOpen ? cls(c.returnPct||0) : 'flat';
+      var retStr   = !isOpen && c.returnPct != null ? (sign(c.returnPct) + fmt(c.returnPct) + '%') : '—';
+      var stBadge  = isOpen
+        ? '<span class="stbadge open">🔄 Đang mở</span>'
+        : (c.returnPct >= 0
+            ? '<span class="stbadge win">✅ Đóng lãi</span>'
+            : '<span class="stbadge loss">❌ Đóng lỗ</span>');
+      var entryStr = c.entryLow ? (c.entryHigh && c.entryHigh !== c.entryLow ? c.entryLow + '–' + c.entryHigh : String(c.entryLow)) : '--';
+
+      html += '<div class="block" style="padding:14px 16px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">'
+        + '<div style="display:flex;align-items:center;gap:8px">'
+        + '<span style="font-family:var(--mono);font-size:18px;font-weight:800;color:var(--accent2)">' + c.ticker + '</span>'
+        + stBadge
+        + '</div>'
+        + '<span style="font-family:var(--mono);font-size:18px;font-weight:700;' + (isOpen?'color:var(--text3)':'color:var(--' + retCls + ')') + '">' + retStr + '</span>'
+        + '</div>'
+        + '<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin-bottom:8px">'
+        + '<span style="color:var(--text3)">📅 ' + c.date + '</span>'
+        + (c.horizon ? '<span style="color:var(--text3)">⏱ ' + c.horizon + '</span>' : '')
+        + '<span>Entry: <strong style="font-family:var(--mono)">' + entryStr + '</strong></span>'
+        + (c.target   ? '<span>🎯 <strong style="color:var(--green);font-family:var(--mono)">' + c.target   + '</strong></span>' : '')
+        + (c.stopLoss ? '<span>🛑 <strong style="color:var(--red);font-family:var(--mono)">'   + c.stopLoss + '</strong></span>' : '')
+        + (!isOpen && c.closePrice ? '<span>Đóng: <strong style="font-family:var(--mono)">' + c.closePrice + '</strong></span>' : '')
+        + (!isOpen && c.holdingDays ? '<span style="color:var(--text3)">' + c.holdingDays + ' ngày</span>' : '')
+        + '</div>'
+        + (c.thesis ? '<div style="font-size:12px;color:var(--text2);font-style:italic;margin-bottom:8px">"' + c.thesis + '"</div>' : '')
+        + '<div style="display:flex;justify-content:space-between;align-items:center">'
+        + '<span style="font-size:10px;color:var(--text3)">ID: ' + (c.id||'') + '</span>'
+        + (c.tg_url ? '<a href="' + c.tg_url + '" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent2);text-decoration:none">🔗 Verify Telegram →</a>' : '')
+        + '</div>'
+        + '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  /* === FALLBACK: dung PH data === */
   var r = PH.trackRecord;
   var list = sub === 'tr-open'   ? r.filter(function(x) { return x.status === 'open'; })
            : sub === 'tr-closed' ? r.filter(function(x) { return x.status !== 'open'; })
@@ -1543,24 +1764,6 @@ function renderTrackRecord(sub) {
 /* ── Section config & router ── */
 var SCFG = {
   tonghop:      {title:'BÁO CÁO TỔNG HỢP',items:[{id:'th-main',i:'📊',l:'TỔNG QUAN'}]},
-  vnindex:      {title:'VNINDEX',items:[
-    {id:'vni-default',  i:'📊',l:'TỔNG QUAN'},
-    {id:'vni-xuhuong',  i:'📈',l:'XU HƯỚNG GIÁ & KL'},
-    {id:'vni-srkc',     i:'🎯',l:'HỖ TRỢ & KHÁNG CỰ'},
-    {id:'vni-khuyen',   i:'💼',l:'KHUYẾN NGHỊ & KỊCH BẢN'},
-  ]},
-  vn30:         {title:'VN30',items:[
-    {id:'vn30-default', i:'📊',l:'TỔNG QUAN'},
-    {id:'vn30-xuhuong', i:'📈',l:'XU HƯỚNG GIÁ & KL'},
-    {id:'vn30-srkc',    i:'🎯',l:'HỖ TRỢ & KHÁNG CỰ'},
-    {id:'vn30-khuyen',  i:'💼',l:'KHUYẾN NGHỊ & KỊCH BẢN'},
-  ]},
-  vnmidcap:     {title:'VNMIDCAP',items:[
-    {id:'vnmid-default',i:'📊',l:'TỔNG QUAN'},
-    {id:'vnmid-xuhuong',i:'📈',l:'XU HƯỚNG GIÁ & KL'},
-    {id:'vnmid-srkc',   i:'🎯',l:'HỖ TRỢ & KHÁNG CỰ'},
-    {id:'vnmid-khuyen', i:'💼',l:'KHUYẾN NGHỊ & KỊCH BẢN'},
-  ]},
   vnindex: {title:'VNINDEX',items:[
     {id:'vni-trend',i:'📊',l:'XU HƯỚNG GIÁ & KL'},
     {id:'vni-sr',   i:'🎯',l:'HỖ TRỢ & KHÁNG CỰ'},
@@ -1665,7 +1868,7 @@ function init() {
   document.getElementById('ldSub').textContent = 'data.json → Yahoo Finance · RSS';
 
   /* Bước 1: Đọc data.json + broker-take.json song song */
-  Promise.all([loadDataJson(), loadBrokerTake()])
+  Promise.all([loadDataJson(), loadBrokerTake(), loadConvictionJson(), loadWatchlistJson(), loadTrackRecordJson()])
     .then(function() {
       render(); /* Render ngay với data từ các file JSON */
 
@@ -1683,7 +1886,7 @@ function init() {
          (GitHub Actions chạy lúc 15:30, sau đó file không đổi đến ngày hôm sau)
          Nhưng vẫn fetch world/news theo chu kỳ riêng */
       setInterval(function() {
-        Promise.all([loadDataJson(), loadBrokerTake()]).then(function() {
+        Promise.all([loadDataJson(), loadBrokerTake(), loadConvictionJson(), loadWatchlistJson(), loadTrackRecordJson()]).then(function() {
           LIVE.ts.vn = 0;
           fetchAll();
         });
