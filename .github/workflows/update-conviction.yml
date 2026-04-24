@@ -1,0 +1,39 @@
+name: Update Conviction Data
+
+on:
+  repository_dispatch:
+    types: [conviction_update]  # Trigger từ Apps Script
+  workflow_dispatch:            # Cho phép chạy thủ công
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install google-auth google-auth-httplib2 google-api-python-client
+
+      - name: Generate JSON files from Sheets
+        env:
+          SHEET_ID:            ${{ secrets.SHEET_ID }}
+          GOOGLE_CREDENTIALS:  ${{ secrets.GOOGLE_CREDENTIALS }}
+        run: python3 gen_conviction.py
+
+      - name: Commit và push files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add conviction.json watchlist.json track-record.json
+          git diff --staged --quiet || git commit -m "auto: update conviction data $(date +'%H:%M %d/%m/%Y')"
+          git push
