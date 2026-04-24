@@ -35,13 +35,31 @@ def fetch_vn_vnstock():
         result = {}
         for ticker in ["VNINDEX", "VN30", "VNMIDCAP"]:
             try:
-                df = stock.stock(symbol=ticker, source='VCI').quote.history(
-                    start=TODAY, end=TODAY, interval='1D'
-                )
+                yesterday = (NOW - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+                # VNMIDCAP thu nhieu source vi VCI hay tra sai
+                sources_try = ['VCI','TCBS','VND'] if ticker=='VNMIDCAP' else ['VCI']
+                df = None
+                for src in sources_try:
+                    try:
+                        _df = stock.stock(symbol=ticker, source=src).quote.history(
+                            start=TODAY, end=TODAY, interval='1D')
+                        if _df is None or len(_df)==0:
+                            _df = stock.stock(symbol=ticker, source=src).quote.history(
+                                start=yesterday, end=TODAY, interval='1D')
+                        if _df is not None and len(_df)>0:
+                            _close = float(_df.iloc[-1].get('close',0) or 0)
+                            if _close > 100:
+                                df = _df
+                                print(f"  {ticker} OK source={src} close={_close}")
+                                break
+                            else:
+                                print(f"  [WARN] {ticker} source={src} close={_close}<100")
+                    except Exception as _e:
+                        print(f"  [WARN] {ticker}/{src}: {_e}")
+                        continue
                 if df is None or len(df) == 0:
-                    # Thu ngay hom qua neu chua co data (sau gio dong cua)
                     yesterday = (NOW - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-                    df = stock.stock(symbol=ticker, source='VCI').quote.history(
+                    df = stock.stock(symbol=ticker, source=src).quote.history(
                         start=yesterday, end=TODAY, interval='1D'
                     )
                 if df is None or len(df) == 0:
@@ -93,47 +111,12 @@ def fetch_vn_vnstock():
         return {}
 
 # ================================================================
-# BREADTH — dung vnstock market breadth
+# BREADTH — lay tu vnstock listing + quote nhanh
 # ================================================================
 def fetch_breadth_vnstock():
-    try:
-        from vnstock import Vnstock
-        stock = Vnstock()
-        # Thu lay breadth tu market overview
-        try:
-            df = stock.trading.price_board(['VNINDEX'])
-            if df is not None and len(df) > 0:
-                row = df.iloc[0]
-                b = {
-                    "up":    si(row.get('advances', row.get('adv', 0))),
-                    "nt":    si(row.get('noChange', row.get('nc', 0))),
-                    "dn":    si(row.get('declines', row.get('dec', 0))),
-                    "ceil":  si(row.get('ceiling', 0)),
-                    "floor": si(row.get('floor', 0)),
-                }
-                print(f"  Breadth: up={b['up']} dn={b['dn']}")
-                return b
-        except: pass
-
-        # Fallback: dem so ma tang giam tu VN30
-        try:
-            symbols = stock.listing.symbols_by_group('VN30')
-            if symbols and len(symbols) > 0:
-                df2 = stock.trading.price_board(symbols[:30])
-                if df2 is not None and len(df2) > 0:
-                    # Tim cot pct change
-                    for col in ['priceChange', 'pctChange', 'change_pct', 'matchedPrice']:
-                        if col in df2.columns:
-                            up = int((df2[col] > 0).sum())
-                            dn = int((df2[col] < 0).sum())
-                            nt = int((df2[col] == 0).sum())
-                            print(f"  Breadth (VN30): up={up} dn={dn} nt={nt}")
-                            return {"up":up,"nt":nt,"dn":dn,"ceil":0,"floor":0}
-        except: pass
-
-    except Exception as e:
-        print(f"  [WARN] Breadth: {e}")
-
+    # Breadth khong co trong vnstock free
+    # Tra ve 0 de web hien placeholder, Phase 2 se co API rieng
+    print("  Breadth: skip (khong co trong vnstock free)")
     return {"up":0,"nt":0,"dn":0,"ceil":0,"floor":0}
 
 # ================================================================
@@ -141,25 +124,64 @@ def fetch_breadth_vnstock():
 # ================================================================
 def fetch_foreign_vnstock():
     try:
-        from vnstock import Vnstock
-        stock = Vnstock()
-        try:
-            df = stock.trading.foreign_trading(exchange='HOSE')
-            if df is not None and len(df) > 0:
-                row = df.iloc[0] if hasattr(df, 'iloc') else df
-                buy  = sf(row.get('buyVal', row.get('buy_value', row.get('foreignBuyValue', 0))))
-                sell = sf(row.get('sellVal', row.get('sell_value', row.get('foreignSellValue', 0))))
-                net  = sf(row.get('netVal', row.get('net_value', row.get('foreignNetValue', 0)))) or (buy - sell)
-                # Chuan hoa don vi → ty dong
+        import requests
+        # SSI iBoard qua proxy Cloudflare
+        PROXY = "https://broker-proxy.baog2766.workers.dev/?url="
+        import urllib.parse
+        url = "https://iboard-query.ssi.com.vn/v2/stock/foreignTrading/all?exchangeCode=HOSE"
+        r = requests.get(PROXY + urllib.parse.quote(url, safe=""), timeout=15,
+                        headers={"User-Agent":"Mozilla/5.0","Accept":"application/json",
+                                 "Referer":"https://iboard.ssi.com.vn/"})
+        if r.status_code == 200:
+            d = r.json()
+            raw = d.get("data")
+            item = raw if isinstance(raw, dict) else (raw[0] if isinstance(raw, list) and raw else None)
+            if item:
+                buy  = sf(item.get("buyVal") or item.get("buyValue") or 0)
+                sell = sf(item.get("sellVal") or item.get("sellValue") or 0)
+                net  = sf(item.get("netVal") or item.get("netValue")) or (buy - sell)
                 if abs(buy) > 1e9:   buy/=1e9; sell/=1e9; net/=1e9
                 elif abs(buy) > 1e6: buy/=1e3; sell/=1e3; net/=1e3
                 if abs(net) > 0.001:
-                    print(f"  Foreign net: {net:.0f} ty")
+                    print(f"  Foreign net: {net:.0f} ty (SSI)")
                     return {"net":round(net),"buy":round(buy),"sell":round(sell)}
-        except Exception as e:
-            print(f"  [WARN] vnstock foreign: {e}")
     except Exception as e:
-        print(f"  [WARN] Foreign: {e}")
+        print(f"  [WARN] Foreign SSI: {e}")
+
+    # Fallback: vnstock - thu cac API moi cua version 3.x
+    try:
+        from vnstock import Vnstock
+        stock = Vnstock()
+
+        # vnstock 3.x: market.foreign_trading()
+        for obj_name, method_name in [
+            ('market', 'foreign_trading'),
+            ('market', 'foreign_flow'),
+            ('stock', 'foreign'),
+        ]:
+            try:
+                obj = getattr(stock, obj_name, None)
+                if obj is None: continue
+                method = getattr(obj, method_name, None)
+                if method is None: continue
+                df = method()
+                if df is None or len(df) == 0: continue
+                row = df.iloc[0] if hasattr(df, 'iloc') else df
+                if hasattr(row, 'get'):
+                    buy  = sf(row.get('buyValue', row.get('buy_value', row.get('buyVal', 0))))
+                    sell = sf(row.get('sellValue', row.get('sell_value', row.get('sellVal', 0))))
+                    net  = sf(row.get('netValue', row.get('net_value', row.get('netVal', 0)))) or (buy-sell)
+                    if abs(buy) > 1e9: buy/=1e9; sell/=1e9; net/=1e9
+                    elif abs(buy) > 1e6: buy/=1e3; sell/=1e3; net/=1e3
+                    if abs(net) > 0.001:
+                        print(f"  Foreign net: {net:.0f} ty ({obj_name}.{method_name})")
+                        return {"net":round(net),"buy":round(buy),"sell":round(sell)}
+            except: continue
+
+    except Exception as e:
+        print(f"  [WARN] Foreign vnstock: {e}")
+
+    print("  [INFO] Foreign: khong co data, dung null")
     return None
 
 # ================================================================
@@ -169,25 +191,42 @@ def fetch_industry_vnstock():
     try:
         from vnstock import Vnstock
         stock = Vnstock()
-        try:
-            df = stock.trading.industry_performance()
-            if df is not None and len(df) > 0:
+        # vnstock 3.x structure
+        for obj_name, method_name in [
+            ('market', 'industry_performance'),
+            ('market', 'sector_performance'),
+            ('market', 'industry'),
+            (None, 'industry_performance'),
+        ]:
+            try:
+                if obj_name:
+                    obj = getattr(stock, obj_name, None)
+                    if obj is None: continue
+                    method = getattr(obj, method_name, None)
+                else:
+                    method = getattr(stock, method_name, None)
+                if method is None: continue
+                df = method()
+                if df is None or len(df) == 0:
+                    continue
                 result = []
                 for _, row in df.iterrows():
-                    name_raw = str(row.get('industry', row.get('sector', row.get('name', ''))))
+                    name_raw = str(row.get('industry', row.get('sector', row.get('name', row.get('industryName', '')))))
                     name_vn  = NAME_MAP.get(name_raw, name_raw)
-                    pct = sf(row.get('pctChange', row.get('change', row.get('performance', 0))))
+                    pct = sf(row.get('pctChange', row.get('change', row.get('performance', row.get('dayChangePercent', 0)))))
                     if abs(pct) < 0.1 and pct != 0: pct *= 100
-                    if name_vn:
+                    if name_vn and name_vn not in ['', 'nan']:
                         result.append({"name": name_vn, "pct": round(pct,2), "up":0, "dn":0})
                 result.sort(key=lambda x: x["pct"], reverse=True)
                 if result:
-                    print(f"  Industry (vnstock): {len(result)} nganh")
+                    print(f"  Industry (vnstock/{method_name}): {len(result)} nganh")
                     return result
-        except Exception as e:
-            print(f"  [WARN] vnstock industry: {e}")
+            except Exception as e:
+                print(f"  [WARN] vnstock/{method_name}: {e}")
+                continue
     except Exception as e:
         print(f"  [WARN] Industry: {e}")
+    print("  [INFO] Industry: khong co data tu vnstock, dung demo")
     return None
 
 # ================================================================
