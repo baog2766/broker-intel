@@ -1055,14 +1055,19 @@ function renderTongHop() {
       var pvTxt = bt && bt.verdict
         ? bt.verdict.emoji + ' <strong>' + bt.verdict.headline + '</strong> — ' + bt.verdict.summary
         : '<span style="color:var(--yellow)">⚠ Chưa có nhận định hôm nay. Cập nhật sau 15:30.</span>';
+      var todayVN2 = new Date().toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'});
+      var btStale2 = bt && bt.date && bt.date.replace(/\/0(\d)\//g,'/$1/') !== todayVN2.replace(/\/0(\d)\//g,'/$1/');
       var badge = bt && bt.verdict
-        ? (bt.generated_by === 'auto'
-            ? '<span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 5px;border-radius:10px">AUTO</span>'
-            : '<span style="color:var(--accent2);font-size:9px;font-weight:700;background:rgba(37,99,235,.1);padding:1px 5px;border-radius:10px">MANUAL</span>')
+        ? (btStale2
+            ? '<span style="color:#f87171;font-size:9px;font-weight:700;background:rgba(239,68,68,.1);padding:1px 5px;border-radius:10px">NGÀY CŨ</span>'
+            : bt.generated_by === 'auto'
+              ? '<span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 5px;border-radius:10px">AUTO</span>'
+              : '<span style="color:var(--accent2);font-size:9px;font-weight:700;background:rgba(37,99,235,.1);padding:1px 5px;border-radius:10px">MANUAL</span>')
         : '<span style="color:var(--yellow);font-size:9px;font-weight:700;background:var(--yellow2);padding:1px 5px;border-radius:10px">DEMO</span>';
+      var pvTxtColor = btStale2 ? 'color:#f87171' : '';
       return '<div class="pvbox"><div>'
         + '<div class="pvlbl">📝 Broker\'s Take — ' + (bt && bt.date ? bt.date : 'Hôm nay') + ' ' + badge + '</div>'
-        + '<div class="pvtxt">' + pvTxt + '</div>'
+        + '<div class="pvtxt" style="' + (btStale2?'color:#f87171':'') + '">' + (btStale2 ? '⚠ Nhận định ngày cũ (' + (bt?bt.date:'--') + ') — cần cập nhật hôm nay' : pvTxt) + '</div>'
         + '</div><button class="pvbtn" onclick="setSection(\'brokers-take\')">Xem đầy đủ →</button></div>';
     })()
 }
@@ -1164,6 +1169,16 @@ function renderBrokersTake() {
   var bt = LIVE.brokerTake;
   var isLive = bt && bt.verdict;
 
+  /* Kiem tra xem broker take co phai cua hom nay khong */
+  var isStale = false;
+  if (isLive && bt.date) {
+    var todayVN = new Date().toLocaleDateString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric'});
+    /* bt.date dang dang "24/04/2026", todayVN dang "24/4/2026" - chuan hoa */
+    var btDateNorm = bt.date.replace(/\/0(\d)\//g, '/$1/');
+    var todayNorm  = todayVN.replace(/\/0(\d)\//g, '/$1/');
+    isStale = (btDateNorm !== todayNorm);
+  }
+
   var genBadge = isLive
     ? (bt.generated_by === 'auto'
         ? '<span style="color:var(--green);font-size:9px;font-weight:700;background:var(--green2);padding:1px 6px;border-radius:10px">AUTO</span>'
@@ -1173,11 +1188,21 @@ function renderBrokersTake() {
   var html = '<div class="ch"><div class="ct">📝 Broker\'s Take ' + genBadge + '</div>'
     + '<div class="csub">Quan điểm thực chiến — cá nhân, rõ ràng, có trách nhiệm</div></div>';
 
-  if (!isLive) {
-    html += '<div class="tdate">📅 ' + new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}) + '</div>';
-    html += '<div style="padding:14px 16px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:8px;color:var(--text2);font-size:13px;margin-bottom:14px">'
-      + '⚠ Chưa có nhận định hôm nay. Làm theo hướng dẫn để cập nhật broker-take.json.</div>';
-    return html;
+  /* Banner nhac khi chua co hoac ngay cu */
+  if (!isLive || isStale) {
+    var todayStr = new Date().toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+    html += '<div class="tdate">📅 ' + todayStr + '</div>';
+    html += '<div style="padding:14px 16px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.3);border-radius:8px;margin-bottom:14px">'
+      + '<div style="font-size:13px;font-weight:700;color:#f87171;margin-bottom:6px">⚠ Chưa có nhận định cho hôm nay</div>'
+      + '<div style="font-size:12px;color:var(--text2);line-height:1.6">'
+      + (isStale ? 'Nhận định hiện tại là của ngày <strong>' + (bt ? bt.date : '--') + '</strong>. ' : '')
+      + 'Để cập nhật:<br>'
+      + '1. Mở Console (F12) → chạy lệnh copy data<br>'
+      + '2. Gửi data cho Claude Pro → nhận JSON<br>'
+      + '3. Paste JSON vào <strong>broker-take.json</strong> trên GitHub'
+      + '</div></div>';
+    /* Van hien nhan dinh cu neu co */
+    if (!isStale) return html;
   }
 
   var vCls = bt.verdict.signal === 'TÍCH CỰC' ? 'pos' : bt.verdict.signal === 'TIÊU CỰC' ? 'neg' : 'neu';
