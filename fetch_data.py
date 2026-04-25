@@ -97,7 +97,7 @@ def calc_bb(closes, n=20, k=2):
         "upper": round(mean + k * std, 2),
         "mid":   round(mean, 2),
         "lower": round(mean - k * std, 2),
-        "width": round((4 * k * std) / mean * 100, 2),  # % of price
+        "width": round((4 * k * std) / mean * 100, 2),
     }
 
 def calc_atr(highs, lows, closes, n=14):
@@ -118,7 +118,7 @@ def calc_atr(highs, lows, closes, n=14):
 
 def calc_vma(volumes, n):
     if len(volumes) < n: return None
-    return round(sum(volumes[-n:]) / n / 1e6, 2)  # trieu cp
+    return round(sum(volumes[-n:]) / n / 1e6, 2)
 
 def trend_label(close, ma):
     if ma is None: return "N/A"
@@ -136,21 +136,18 @@ def sr_levels(highs, lows, closes, n=50):
     c = closes[-window:]
     curr = closes[-1]
 
-    # Tim local max (khang cu)
     resistance = []
     for i in range(2, len(h)-2):
         if h[i] > h[i-1] and h[i] > h[i-2] and h[i] > h[i+1] and h[i] > h[i+2]:
-            if h[i] > curr * 1.002:  # chi lay muc tren gia hien tai
+            if h[i] > curr * 1.002:
                 resistance.append(round(h[i], 2))
 
-    # Tim local min (ho tro)
     support = []
     for i in range(2, len(l)-2):
         if l[i] < l[i-1] and l[i] < l[i-2] and l[i] < l[i+1] and l[i] < l[i+2]:
-            if l[i] < curr * 0.998:  # chi lay muc duoi gia hien tai
+            if l[i] < curr * 0.998:
                 support.append(round(l[i], 2))
 
-    # Sort va lay gan nhat
     resistance.sort()
     support.sort(reverse=True)
     return support[:3], resistance[:3]
@@ -166,7 +163,6 @@ def calc_technical(ohlcv):
     volumes = ohlcv["volumes"]
     curr    = closes[-1]
 
-    # MAs
     ma5   = calc_ma(closes, 5)
     ma10  = calc_ma(closes, 10)
     ma20  = calc_ma(closes, 20)
@@ -174,60 +170,42 @@ def calc_technical(ohlcv):
     ma100 = calc_ma(closes, 100)
     ema20 = calc_ema(closes, 20)
 
-    # RSI
     rsi14 = calc_rsi(closes, 14)
 
-    # Bollinger Bands (20,2)
     bb = calc_bb(closes, 20, 2)
 
-    # ATR
     atr14 = calc_atr(highs, lows, closes, 14)
 
-    # Volume MAs
     vma10 = calc_vma(volumes, 10)
     vma20 = calc_vma(volumes, 20)
     vol_today = round(volumes[-1] / 1e6, 2) if volumes else 0
 
-    # Volume divergence: gia tang nhung KL giam = phan ky am
     price_chg_5d = (closes[-1] - closes[-6]) / closes[-6] * 100 if len(closes) > 5 else 0
     vol_chg_5d   = (volumes[-1] - volumes[-6]) / volumes[-6] * 100 if len(volumes) > 5 and volumes[-6] > 0 else 0
     vol_div = "NEGATIVE" if price_chg_5d > 1 and vol_chg_5d < -10 else \
               "POSITIVE" if price_chg_5d > 1 and vol_chg_5d > 10  else "NEUTRAL"
 
-    # Xu huong
     trend_short = trend_label(curr, ma10)
     trend_mid   = trend_label(curr, ma50)
     trend_long  = trend_label(curr, ma100) if ma100 else "N/A"
 
-    # Ho tro / Khang cu
     support_dyn, resist_dyn = sr_levels(highs, lows, closes, 60)
 
-    # Them MA lam muc S/R
-    sr_from_ma = {}
-    if ma20:  sr_from_ma[f"MA20={ma20}"] = ma20
-    if ma50:  sr_from_ma[f"MA50={ma50}"] = ma50
-    if ma100: sr_from_ma[f"MA100={ma100}"] = ma100
-
-    # Bollinger S/R
     if bb:
         if bb["upper"] > curr: resist_dyn.insert(0, bb["upper"])
         if bb["lower"] < curr: support_dyn.insert(0, bb["lower"])
 
-    # Dedup va sort
     resist_dyn = sorted(list(set([r for r in resist_dyn if r > curr]))[:3])
     support_dyn = sorted(list(set([s for s in support_dyn if s < curr])), reverse=True)[:3]
 
-    # % tu gia den muc S/R gan nhat
     nearest_r = resist_dyn[0] if resist_dyn else None
     nearest_s = support_dyn[0] if support_dyn else None
     to_resist = round((nearest_r - curr) / curr * 100, 2) if nearest_r else None
     to_support= round((curr - nearest_s) / curr * 100, 2) if nearest_s else None
 
-    # RSI signal
     rsi_signal = "QUA_MUA" if rsi14 and rsi14 > 70 else \
                  "QUA_BAN" if rsi14 and rsi14 < 30 else "TRUNG_TINH"
 
-    # BB position (% trong BB)
     bb_pos = None
     if bb and bb["upper"] != bb["lower"]:
         bb_pos = round((curr - bb["lower"]) / (bb["upper"] - bb["lower"]) * 100, 1)
@@ -257,52 +235,68 @@ def calc_technical(ohlcv):
     }
 
 # ================================================================
-# VN INDICES — vnstock VCI (da hoat dong tot)
+# VN INDICES — vnstock VCI
+# VNMIDCAP FIX: lay 4 phien, dung prev_close neu open==close
 # ================================================================
 def fetch_vn_today():
     result = {}
-    yesterday = (NOW - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-    two_days  = (NOW - datetime.timedelta(days=4)).strftime("%Y-%m-%d")  # lay du lich su
+    # Lay 4 phien de dam bao co du prev_close cho moi truong hop
+    four_days = (NOW - datetime.timedelta(days=6)).strftime("%Y-%m-%d")
     try:
         from vnstock import Vnstock
         stock = Vnstock()
         for ticker in ["VNINDEX", "VN30", "VNMIDCAP"]:
             try:
-                # Lay 3 phien gan nhat de co prev_close chinh xac
                 df = stock.stock(symbol=ticker, source='VCI').quote.history(
-                    start=two_days, end=TODAY, interval='1D'
+                    start=four_days, end=TODAY, interval='1D'
                 )
                 if df is None or len(df) == 0:
-                    df = stock.stock(symbol=ticker, source='VCI').quote.history(
-                        start=yesterday, end=TODAY, interval='1D'
-                    )
-                if df is None or len(df) == 0: continue
+                    print(f"  [WARN] {ticker}: no data")
+                    continue
 
-                row    = df.iloc[-1]
-                close  = sf(row.get('close', 0))
+                row   = df.iloc[-1]
+                close = sf(row.get('close', 0))
                 open_p = sf(row.get('open', close))
-                if close < 100 and close > 0: close*=1000; open_p*=1000
-                if close < 100: continue
 
-                # Neu open == close (VCI tra sai cho VNMIDCAP)
-                # thi dung prev_close tu phien truoc
-                if abs(open_p - close) < 0.001 and len(df) >= 2:
-                    prev_close = sf(df.iloc[-2].get('close', 0))
-                    if prev_close < 100 and prev_close > 0:
-                        prev_close *= 1000
-                    if prev_close > 100:
-                        open_p = prev_close
-                        print(f"  {ticker}: dung prev_close={prev_close:.2f} thay open")
+                # Fix decimal: VCI tra gia dang 1.289 thay vi 1289
+                if close < 100 and close > 0:
+                    close  *= 1000
+                    open_p *= 1000
+
+                if close < 100:
+                    print(f"  [WARN] {ticker}: close={close} qua nho, bo qua")
+                    continue
+
+                # VNMIDCAP FIX: neu open==close (VCI tra sai) thi dung prev_close
+                if abs(open_p - close) < 0.001:
+                    if len(df) >= 2:
+                        prev_row   = df.iloc[-2]
+                        prev_close = sf(prev_row.get('close', 0))
+                        if prev_close < 100 and prev_close > 0:
+                            prev_close *= 1000
+                        if prev_close > 100:
+                            open_p = prev_close
+                            print(f"  {ticker}: open==close detected, dung prev_close={prev_close:.2f}")
+                        else:
+                            print(f"  [WARN] {ticker}: prev_close={prev_close} cung khong hop le")
+                    else:
+                        print(f"  [WARN] {ticker}: khong du phien de lay prev_close")
 
                 vol    = sf(row.get('volume', 0))
                 change = round(close - open_p, 2)
                 pct    = round(change / open_p * 100, 2) if open_p else 0
+
+                # Log ro de debug
+                print(f"  {ticker}: close={close:.2f} prev={open_p:.2f} pct={pct:+.2f}%")
+
                 result[ticker] = {
-                    "value": round(close,2), "change": change, "pct": pct,
-                    "vol": round(vol/1e6,2), "val": 0,
-                    "date": str(df.index[-1])[:10],
+                    "value":  round(close, 2),
+                    "change": change,
+                    "pct":    pct,
+                    "vol":    round(vol / 1e6, 2),
+                    "val":    0,
+                    "date":   str(df.index[-1])[:10],
                 }
-                print(f"  {ticker}: {close:.2f} ({pct:+.2f}%)")
                 time.sleep(0.5)
             except Exception as e:
                 print(f"  [WARN] {ticker}: {e}")
@@ -336,8 +330,6 @@ for _ticker, _key in [("VNINDEX","vni"), ("VN30","vn30"), ("VNMIDCAP","vnmid")]:
         print(f"  [WARN] {_ticker}: khong co OHLCV")
         technical[_key] = {}
 
-tech = technical.get("vni", {})
-
 # Merge VN data
 vni  = vn.get("VNINDEX")  or old.get("vni",  {})
 vn30 = vn.get("VN30")     or old.get("vn30", {})
@@ -359,7 +351,7 @@ data = {
     "vnmid":     vnm,
     "foreign":   fgn_final,
     "industry":  industry_final,
-    "technical": technical,  # indicators cho ca 3: vni, vn30, vnmid
+    "technical": technical,
 }
 
 with open("data.json","w",encoding="utf-8") as f:
