@@ -1,10 +1,10 @@
 {
-  "updated": "17/06/2026 19:34",
+  "updated": "18/06/2026 19:01",
   "vni": {
-    "value": 1806.2,
-    "change": 8.79,
-    "pct": 0.49,
-    "vol": 821.62,
+    "value": 1830.47,
+    "change": 8.1,
+    "pct": 0.44,
+    "vol": 633.59,
     "val": 0,
     "date": "6",
     "up": 0,
@@ -14,18 +14,18 @@
     "floor": 0
   },
   "vn30": {
-    "value": 1957.17,
-    "change": 4.47,
-    "pct": 0.23,
-    "vol": 349.84,
+    "value": 1967.22,
+    "change": -1.45,
+    "pct": -0.07,
+    "vol": 257.82,
     "val": 0,
     "date": "6"
   },
   "vnmid": {
-    "value": 2180.0,
-    "change": 10.0,
-    "pct": 0.46,
-    "vol": 398.03,
+    "value": 2160.0,
+    "change": -20.0,
+    "pct": -0.92,
+    "vol": 317.31,
     "val": 0,
     "date": "6"
   },
@@ -37,31 +37,31 @@
   "industry": [],
   "technical": {
     "vni": {
-      "close": 1806.2,
-      "ma5": 1800.74,
-      "ma10": 1806.14,
-      "ma20": 1834.86,
-      "ma50": 1839.75,
-      "ma100": 1803.62,
-      "ema20": 1826.66,
-      "rsi14": 41.5,
+      "close": 1830.47,
+      "ma5": 1807.11,
+      "ma10": 1806.04,
+      "ma20": 1831.54,
+      "ma50": 1842.86,
+      "ma100": 1802.96,
+      "ema20": 1827.03,
+      "rsi14": 49.9,
       "rsi_signal": "TRUNG_TINH",
       "bb": {
-        "upper": 1905.6,
-        "mid": 1834.86,
-        "lower": 1764.13,
-        "width": 15.42
+        "upper": 1896.3,
+        "mid": 1831.54,
+        "lower": 1766.78,
+        "width": 14.14
       },
-      "bb_pos": 29.7,
-      "atr14": 26.76,
-      "vol_today": 821.62,
-      "vma10": 630.84,
-      "vma20": 671.69,
-      "vol_div": "NEUTRAL",
+      "bb_pos": 49.2,
+      "atr14": 27.0,
+      "vol_today": 633.59,
+      "vma10": 634.07,
+      "vma20": 669.51,
+      "vol_div": "POSITIVE",
       "trend": {
         "short": "NGANG",
-        "mid": "GIAM",
-        "long": "NGANG"
+        "mid": "NGANG",
+        "long": "TANG"
       },
       "support": [
         1798.05,
@@ -69,92 +69,92 @@
         1775.72
       ],
       "resistance": [
-        1813.57,
+        1846.71,
         1888.99,
-        1905.6
+        1896.3
       ],
-      "to_resist": 0.41,
-      "to_support": 0.45
+      "to_resist": 0.89,
+      "to_support": 1.77
     },
     "vn30": {
-      "close": 1957.17,
-      "ma5": 1954.3,
-      "ma10": 1958.97,
-      "ma20": 1981.72,
-      "ma50": 1992.85,
-      "ma100": 1966.46,
-      "ema20": 1976.29,
-      "rsi14": 42.6,
+      "close": 1967.22,
+      "ma5": 1958.28,
+      "ma10": 1957.47,
+      "ma20": 1978.71,
+      "ma50": 1995.47,
+      "ma100": 1965.19,
+      "ema20": 1975.42,
+      "rsi14": 46.1,
       "rsi_signal": "TRUNG_TINH",
       "bb": {
-        "upper": 2039.12,
-        "mid": 1981.72,
-        "lower": 1924.33,
-        "width": 11.58
+        "upper": 2032.38,
+        "mid": 1978.71,
+        "lower": 1925.04,
+        "width": 10.85
       },
-      "bb_pos": 28.6,
-      "atr14": 24.92,
-      "vol_today": 349.84,
-      "vma10": 297.19,
-      "vma20": 304.69,
-      "vol_div": "NEUTRAL",
-      "trend": {
-        "short": "NGANG",
-        "mid": "GIAM",
-        "long": "NGANG"
-      },
-      "support": [
-        1943.05,
-        1933.38,
-        1924.33
-      ],
-      "resistance": [
-        2033.95,
-        2047.68,
-        2071.44
-      ],
-      "to_resist": 3.92,
-      "to_support": 0.72
-    },
-    "vnmid": {
-      "close": 2180.0,
-      "ma5": 2142.0,
-      "ma10": 2129.0,
-      "ma20": 2148.0,
-      "ma50": 2192.8,
-      "ma100": 2195.8,
-      "ema20": 2152.72,
-      "rsi14": 54.6,
-      "rsi_signal": "TRUNG_TINH",
-      "bb": {
-        "upper": 2215.71,
-        "mid": 2148.0,
-        "lower": 2080.29,
-        "width": 12.61
-      },
-      "bb_pos": 73.6,
-      "atr14": 29.97,
-      "vol_today": 398.03,
-      "vma10": 257.94,
-      "vma20": 290.45,
+      "bb_pos": 39.3,
+      "atr14": 24.42,
+      "vol_today": 257.82,
+      "vma10": 290.42,
+      "vma20": 300.88,
       "vol_div": "POSITIVE",
       "trend": {
-        "short": "TANG",
+        "short": "NGANG",
         "mid": "NGANG",
         "long": "NGANG"
       },
       "support": [
-        2170.0,
-        2140.0,
-        2100.0
+        1961.88,
+        1943.05,
+        1933.38
       ],
       "resistance": [
-        2215.71,
+        2032.38,
+        2033.95,
+        2071.44
+      ],
+      "to_resist": 3.31,
+      "to_support": 0.27
+    },
+    "vnmid": {
+      "close": 2160.0,
+      "ma5": 2152.0,
+      "ma10": 2131.0,
+      "ma20": 2146.5,
+      "ma50": 2193.6,
+      "ma100": 2194.4,
+      "ema20": 2153.41,
+      "rsi14": 49.9,
+      "rsi_signal": "TRUNG_TINH",
+      "bb": {
+        "upper": 2211.7,
+        "mid": 2146.5,
+        "lower": 2081.3,
+        "width": 12.15
+      },
+      "bb_pos": 60.4,
+      "atr14": 29.26,
+      "vol_today": 317.31,
+      "vma10": 270.89,
+      "vma20": 292.37,
+      "vol_div": "POSITIVE",
+      "trend": {
+        "short": "NGANG",
+        "mid": "GIAM",
+        "long": "GIAM"
+      },
+      "support": [
+        2140.0,
+        2100.0,
+        2081.3
+      ],
+      "resistance": [
+        2211.7,
         2230.0,
         2270.0
       ],
-      "to_resist": 1.64,
-      "to_support": 0.46
+      "to_resist": 2.39,
+      "to_support": 0.93
     }
   }
 }
