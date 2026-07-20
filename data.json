@@ -1,10 +1,10 @@
 {
-  "updated": "17/07/2026 17:16",
+  "updated": "20/07/2026 18:21",
   "vni": {
-    "value": 1804.24,
-    "change": 31.72,
-    "pct": 1.79,
-    "vol": 788.7,
+    "value": 1743.51,
+    "change": -39.42,
+    "pct": -2.21,
+    "vol": 862.57,
     "val": 0,
     "date": "6",
     "up": 0,
@@ -14,18 +14,18 @@
     "floor": 0
   },
   "vn30": {
-    "value": 1941.65,
-    "change": 34.31,
-    "pct": 1.8,
-    "vol": 362.42,
+    "value": 1887.32,
+    "change": -38.97,
+    "pct": -2.02,
+    "vol": 392.46,
     "val": 0,
     "date": "6"
   },
   "vnmid": {
-    "value": 1990.0,
-    "change": 10.0,
-    "pct": 0.51,
-    "vol": 348.16,
+    "value": 1900.0,
+    "change": -60.0,
+    "pct": -3.06,
+    "vol": 378.35,
     "val": 0,
     "date": "6"
   },
@@ -36,8 +36,113 @@
   },
   "industry": [],
   "technical": {
-    "vni": {},
-    "vn30": {},
-    "vnmid": {}
+    "vni": {
+      "close": 1743.51,
+      "ma5": 1784.79,
+      "ma10": 1809.55,
+      "ma20": 1836.58,
+      "ma50": 1846.85,
+      "ma100": 1805.74,
+      "ema20": 1819.04,
+      "rsi14": 30.0,
+      "rsi_signal": "TRUNG_TINH",
+      "bb": {
+        "upper": 1908.59,
+        "mid": 1836.58,
+        "lower": 1764.57,
+        "width": 15.68
+      },
+      "bb_pos": -14.6,
+      "atr14": 28.9,
+      "vol_today": 862.57,
+      "vma10": 651.05,
+      "vma20": 649.78,
+      "vol_div": "NEUTRAL",
+      "trend": {
+        "short": "GIAM",
+        "mid": "GIAM",
+        "long": "GIAM"
+      },
+      "support": [],
+      "resistance": [
+        1813.57,
+        1873.87,
+        1908.59
+      ],
+      "to_resist": 4.02,
+      "to_support": null
+    },
+    "vn30": {
+      "close": 1887.32,
+      "ma5": 1924.55,
+      "ma10": 1951.48,
+      "ma20": 1977.47,
+      "ma50": 1988.28,
+      "ma100": 1956.09,
+      "ema20": 1960.94,
+      "rsi14": 30.1,
+      "rsi_signal": "TRUNG_TINH",
+      "bb": {
+        "upper": 2049.35,
+        "mid": 1977.47,
+        "lower": 1905.58,
+        "width": 14.54
+      },
+      "bb_pos": -12.7,
+      "atr14": 27.58,
+      "vol_today": 392.46,
+      "vma10": 285.08,
+      "vma20": 293.92,
+      "vol_div": "NEUTRAL",
+      "trend": {
+        "short": "GIAM",
+        "mid": "GIAM",
+        "long": "GIAM"
+      },
+      "support": [],
+      "resistance": [
+        2018.46,
+        2024.3,
+        2049.35
+      ],
+      "to_resist": 6.95,
+      "to_support": null
+    },
+    "vnmid": {
+      "close": 1900.0,
+      "ma5": 1976.0,
+      "ma10": 2014.0,
+      "ma20": 2066.0,
+      "ma50": 2128.4,
+      "ma100": 2160.6,
+      "ema20": 2047.64,
+      "rsi14": 19.8,
+      "rsi_signal": "QUA_BAN",
+      "bb": {
+        "upper": 2196.9,
+        "mid": 2066.0,
+        "lower": 1935.1,
+        "width": 25.34
+      },
+      "bb_pos": -13.4,
+      "atr14": 38.81,
+      "vol_today": 378.35,
+      "vma10": 280.86,
+      "vma20": 275.83,
+      "vol_div": "NEUTRAL",
+      "trend": {
+        "short": "GIAM",
+        "mid": "GIAM",
+        "long": "GIAM"
+      },
+      "support": [],
+      "resistance": [
+        2150.0,
+        2190.0,
+        2196.9
+      ],
+      "to_resist": 13.16,
+      "to_support": null
+    }
   }
 }
